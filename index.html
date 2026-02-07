@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+    <html lang="zh-TW">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Borui | NKUST ECE</title>
+            <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+            
+            <!-- 【關鍵】這裡引入你的 style.css -->
+            <link rel="stylesheet" href="style.css">
+        </head>
+    <body>
+
+        <div class="gradient-bg"></div>
+
+        <nav>
+            <a href="#home" class="logo" onclick="switchPage('home')">borui<span>0312</span></a>
+            <div class="nav-links">
+                <a href="#home" onclick="switchPage('home')" id="nav-home">
+                    <i class="fas fa-home" style="margin-bottom: 5px; display: none;"></i>
+                    首頁
+                </a>
+                <a href="#about" onclick="switchPage('about')" id="nav-about">
+                    <i class="fas fa-user-astronaut" style="margin-bottom: 5px; display: none;"></i>
+                    關於我
+                </a>
+                <a href="#projects" onclick="switchPage('projects')" id="nav-projects">
+                    <i class="fas fa-code" style="margin-bottom: 5px; display: none;"></i>
+                    專案作品
+                </a>
+                <a href="#contact" onclick="switchPage('contact')" id="nav-contact">
+                    <i class="fas fa-paper-plane" style="margin-bottom: 5px; display: none;"></i>
+                    聯絡方式
+                </a>
+            </div>
+        </nav>
+
+        <main>
+            <!-- 1. 首頁 -->
+            <section id="home" class="page-section active">
+                <div class="hero-content">
+                    <h4>Hi, I'm Borui 👋</h4>
+                    <h1>Building Future<br>with Code & Logic.</h1>
+                    <h2>I am a <span id="typing-text"></span><span class="cursor"></span></h2>
+                    <button onclick="switchPage('projects')" class="btn">查看我的作品</button>
+                </div>
+            </section>
+
+            <!-- 2. 關於我 -->
+            <section id="about" class="page-section">
+                <h2 class="section-title">關於我 (About Me)</h2>
+                <div class="about-content">
+                    <div class="about-text">
+                        <div class="avatar-container">
+                            <img src="image_2a9f01.png" onerror="this.src='https://cdn-icons-png.flaticon.com/512/847/847969.png'" alt="Borui Avatar" class="profile-img">
+                        </div>
+                        <p>來自基隆，目前在高雄求學。我是 <strong>NKUST ECE (高科大電通系)</strong> 的大一新生。</p>
+                        <p>我不僅是一個工程系學生，更是一個熱愛解決問題的創造者。我喜歡將程式邏輯應用在真實世界，無論是用 Python 分析台股走勢，還是開發有趣的旅遊 App。</p>
+                        <p>我同時也是一個語言愛好者，喜歡透過字根字首 (Etymology) 來拆解與理解英文單字的奧秘。</p>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-card"><i class="fas fa-university"></i><h3>NKUST</h3><p>ECE Student</p></div>
+                        <div class="stat-card"><i class="fas fa-laptop-code"></i><h3>Dev</h3><p>App & Python</p></div>
+                        <div class="stat-card"><i class="fas fa-chart-line"></i><h3>Invest</h3><p>Stock Market</p></div>
+                        <div class="stat-card"><i class="fas fa-book-open"></i><h3>English</h3><p>Etymology</p></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. 專案作品 -->
+            <section id="projects" class="page-section">
+                <h2 class="section-title">精選專案 (Projects)</h2>
+                <div class="projects-grid">
+                    <div class="project-card">
+                        <div class="project-icon"><i class="fas fa-chart-pie"></i></div>
+                        <h3>Stock Portfolio Tracker</h3>
+                        <p>專為台股 (0050, TSMC) 設計的資產追蹤系統。整合損益行事曆與庫存管理，讓投資績效一目瞭然。</p>
+                        <div class="tags">
+                            <span class="tech-tag">Python</span>
+                            <span class="tech-tag">Data Analysis</span>
+                            <span class="tech-tag">Finance</span>
+                        </div>
+                    </div>
+                    <div class="project-card">
+                        <div class="project-icon"><i class="fas fa-map-marked-alt"></i></div>
+                        <h3>Matsu O-Pa Travel</h3>
+                        <p>結合「尋寶遊戲」的馬祖旅遊 App 企劃。透過互動式地圖與任務，將觀光體驗遊戲化 (Gamification)。</p>
+                        <div class="tags">
+                            <span class="tech-tag">App Dev</span>
+                            <span class="tech-tag">Gamification</span>
+                            <span class="tech-tag">UI/UX</span>
+                        </div>
+                    </div>
+                    <div class="project-card" style="border-style: dashed; opacity: 0.5;">
+                        <div class="project-icon"><i class="fas fa-plus"></i></div>
+                        <h3>Coming Soon</h3>
+                        <p>正在構思下一個有趣的專案...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. 聯絡方式 -->
+            <section id="contact" class="page-section">
+                <h2 class="section-title">聯絡資訊 (Contact)</h2>
+                <div class="contact-container" style="display: flex; justify-content: center;">
+                    <div class="contact-info-card" style="width: 100%; max-width: 600px;">
+                        <h3>Let's Connect!</h3>
+                        <p style="color: var(--text-sub); margin-bottom: 2rem;">無論是技術交流、投資心得分享，或是合作邀約，都歡迎隨時與我聯繫。</p>
+                        <div class="contact-item"><i class="fas fa-envelope"></i><a href="mailto:your-email@example.com">your-email@example.com</a></div>
+                        <div class="contact-item"><i class="fab fa-github"></i><a href="https://github.com/borui0312" target="_blank">github.com/borui0312</a></div>
+                        <div class="contact-item"><i class="fas fa-map-marker-alt"></i><span>Kaohsiung / Keelung, Taiwan</span></div>
+                        <div class="social-big-links">
+                            <a href="https://github.com/borui0312" target="_blank" class="social-btn"><i class="fab fa-github"></i></a>
+                            <a href="mailto:your-email@example.com" class="social-btn"><i class="fas fa-envelope"></i></a>
+                            <a href="#" class="social-btn"><i class="fab fa-instagram"></i></a>
+                            <a href="#" class="social-btn"><i class="fab fa-linkedin-in"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- 【關鍵】這裡引入你的 script.js -->
+        <script src="script.js"></script>
+    </body>
+</html>
