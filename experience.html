@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>作品集 | 郭柏銳 Borui</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <link rel="stylesheet" href="style1.css">
+</head>
+
+<body>
+
+    <!-- 背景層 -->
+    <div class="bg-grid"></div>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+
+    <!-- 導覽列層 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="#home" class="logo" onclick="switchPage('home')">
+                &lt;Borui<span>/</span>&gt;
+            </a>
+
+            <div class="nav-links">
+                <a href="index.html#home" onclick="switchPage('home')" id="nav-home" class="nav-link">
+                    <i class="fas fa-home nav-icon"></i>
+                    <span>首頁</span>
+                </a>
+                <a href="index.html#about" onclick="switchPage('about')" id="nav-about" class="nav-link">
+                    <i class="fas fa-user-astronaut nav-icon"></i>
+                    <span>關於我</span>
+                </a>
+                <a href="experience.html" id="nav-projects" class="nav-link">
+                    <i class="fas fa-code nav-icon"></i>
+                    <span>專案作品</span>
+                </a>
+                <a href="index.html#contact" onclick="switchPage('contact')" id="nav-contact" class="nav-link">
+                    <i class="fas fa-paper-plane nav-icon"></i>
+                    <span>聯絡方式</span>
+                </a>
+            </div>
+        </div>
+    </nav>
+    <!-- 主要內容 -->
+    <div class="main-wrapper">
+        
+        <!-- ======================= 1. 比賽歷程 (保留原樣) ======================= -->
+        <div class="section-header">
+            <div>
+                <h2 class="header-title">
+                    <div class="icon-box">
+                        <i data-lucide="trophy"></i>
+                    </div>
+                    比賽歷程
+                </h2>
+                <p class="header-desc">記錄每一場挑戰與成長的足跡</p>
+            </div>
+            
+            <button id="toggleViewBtn" class="toggle-btn">
+                <i data-lucide="grid" class="icon-grid"></i>
+                <i data-lucide="layout" class="icon-layout hidden"></i>
+                <span id="toggleBtnText">顯示全部</span>
+            </button>
+        </div>
+
+        <!-- 比賽歷程內容 -->
+        <div style="position: relative; min-height: 400px;">
+            <!-- 輪播模式 -->
+            <div id="carouselView" class="carousel-view fade-in">
+                <button id="prevBtn" class="nav-btn prev">
+                    <i data-lucide="chevron-left"></i>
+                </button>
+
+                <div class="carousel-container">
+                    <div id="carouselTrack" class="carousel-track">
+                        <!-- JS 填入 -->
+                    </div>
+                </div>
+
+                <button id="nextBtn" class="nav-btn next">
+                    <i data-lucide="chevron-right"></i>
+                </button>
+            </div>
+
+            <!-- 格狀模式 -->
+            <div id="gridView" class="grid-view fade-in">
+                <!-- JS 填入 -->
+            </div>
+        </div>
+
+        <!-- 分隔線 -->
+        <div class="section-spacer"></div>
+
+        <!-- ======================= 2. 專案作品 (Side Projects) ======================= -->
+        <div class="section-header">
+            <div>
+                <h2 class="header-title">
+                    <div class="icon-box">
+                        <i data-lucide="code"></i>
+                    </div>
+                    專案作品
+                </h2>
+                <p class="header-desc">課餘時間的創意實踐與技術探索</p>
+            </div>
+            <!-- 這裡不放切換按鈕，預設就是輪播 -->
+        </div>
+
+        <div class="carousel-view fade-in" style="opacity: 1;">
+            <button id="projectPrev" class="nav-btn prev">
+                <i data-lucide="chevron-left"></i>
+            </button>
+
+            <div class="carousel-container">
+                <div id="projectTrack" class="carousel-track">
+                    <!-- JS 填入 -->
+                </div>
+            </div>
+
+            <button id="projectNext" class="nav-btn next">
+                <i data-lucide="chevron-right"></i>
+            </button>
+        </div>
+
+        <!-- 分隔線 -->
+        <div class="section-spacer"></div>
+
+        <!-- ======================= 3. 研習活動 (Workshops) ======================= -->
+        <div class="section-header">
+            <div>
+                <h2 class="header-title">
+                    <div class="icon-box">
+                        <i data-lucide="book-open"></i>
+                    </div>
+                    研習活動
+                </h2>
+                <p class="header-desc">持續進修與專業技能培訓</p>
+            </div>
+        </div>
+
+        <div class="carousel-view fade-in" style="opacity: 1;">
+            <button id="workshopPrev" class="nav-btn prev">
+                <i data-lucide="chevron-left"></i>
+            </button>
+
+            <div class="carousel-container">
+                <div id="workshopTrack" class="carousel-track">
+                    <!-- JS 填入 -->
+                </div>
+            </div>
+
+            <button id="workshopNext" class="nav-btn next">
+                <i data-lucide="chevron-right"></i>
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Modal (彈窗) -->
+    <div id="modalOverlay" class="modal-overlay">
+        <div class="modal-content">
+            
+            <button onclick="closeModal()" class="modal-close">
+                <i data-lucide="x"></i>
+            </button>
+
+            <!-- 左側：圖片 -->
+            <div class="modal-left">
+                <img id="modalImage" src="" alt="" class="modal-img">
+                
+                <div class="modal-img-gradient">
+                    <div class="modal-header">
+                        <span id="modalAward" class="award-tag">
+                            <i data-lucide="award" style="width:14px"></i>
+                            <span></span>
+                        </span>
+                        <h3 id="modalTitle" class="modal-title-text"></h3>
+                    </div>
+                </div>
+
+                <!-- 圖片控制 -->
+                <div id="modalImgControls" class="hidden">
+                    <button onclick="changeModalImage(-1)" class="img-control-btn img-prev">
+                        <i data-lucide="chevron-left"></i>
+                    </button>
+                    <button onclick="changeModalImage(1)" class="img-control-btn img-next">
+                        <i data-lucide="chevron-right"></i>
+                    </button>
+                    <div id="modalImgDots" class="img-dots"></div>
+                </div>
+            </div>
+
+            <!-- 右側：內容 -->
+            <div class="modal-right">
+                <div class="modal-date">
+                    <i data-lucide="calendar" style="width:16px; color: var(--primary-color)"></i>
+                    <span id="modalDate"></span>
+                </div>
+
+                <div class="modal-desc-area">
+                    <h4 class="modal-subtitle">
+                        <span class="accent-bar"></span>
+                        內容介紹
+                    </h4>
+                    <p id="modalDescription" class="modal-text"></p>
+                </div>
+
+                <div class="modal-tags-area">
+                    <span class="tag-label">Tech Stack</span>
+                    <div id="modalTags" class="tags-flex"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 頁尾 -->
+    <footer>
+        <p>&copy; 2026 Borui. Designed with Code & AI.</p>
+    </footer>
+
+    <script src="script1.js"></script>
+</body>
+</html>

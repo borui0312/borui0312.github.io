@@ -8,23 +8,32 @@ function switchPage(pageId) {
     const targetSection = document.getElementById(pageId);
     if (targetSection) {
         targetSection.classList.add('active');
+        targetSection.scrollTop = 0;
     }
 
-    const navLinks = document.querySelectorAll('.nav-links a');
+    const navLinks = document.querySelectorAll('.nav-link');
     navLinks.forEach(link => {
         link.classList.remove('active');
     });
     
-    // 點亮對應的按鈕 (包含首頁)
     const activeLink = document.getElementById('nav-' + pageId);
     if (activeLink) activeLink.classList.add('active');
-
-    window.scrollTo(0, 0);
 }
 
+
+
+
+
+
+
+
+
+
+
+// 初始化與 Hash 監聽
 window.addEventListener('load', () => {
     const hash = window.location.hash.substring(1);
-    if (hash && (hash === 'about' || hash === 'projects' || hash === 'contact')) {
+    if (hash && ['about', 'projects', 'contact'].includes(hash)) {
         switchPage(hash);
     } else {
         switchPage('home');
@@ -40,29 +49,41 @@ window.addEventListener('hashchange', () => {
     }
 });
 
-// 打字機特效邏輯
+// 打字機特效
 const textElement = document.getElementById('typing-text');
-const texts = ['NKUST Student', 'App Developer', 'Market Analyst', 'Keelung Boy'];
-let count = 0;
+const texts = ['Software Dev', 'AI Technology', 'Cyber Security', 'Stock Analysis'];
+let count = 0; 
 let index = 0;
 let currentText = '';
 let letter = '';
+let isDeleting = false;
 
 (function type() {
     if (count === texts.length) {
         count = 0;
     }
     currentText = texts[count];
-    letter = currentText.slice(0, ++index);
 
-    textElement.textContent = letter;
-    
-    if (letter.length === currentText.length) {
-        setTimeout(() => {
-            count++;
-            index = 0;
-        }, 2000); 
+    if (isDeleting) {
+        letter = currentText.slice(0, --index);
+    } else {
+        letter = currentText.slice(0, ++index);
     }
-    
-    setTimeout(type, letter.length === currentText.length ? 2000 : 100);
+
+    if(textElement) textElement.textContent = letter;
+
+    let typeSpeed = 100;
+    if (isDeleting) {
+        typeSpeed = 50;
+    }
+
+    if (!isDeleting && letter.length === currentText.length) {
+        typeSpeed = 2000; 
+        isDeleting = true; 
+    } else if (isDeleting && letter.length === 0) {
+        isDeleting = false; 
+        count++;
+        typeSpeed = 500;
+    }
+    setTimeout(type, typeSpeed);
 }());
