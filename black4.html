@@ -203,7 +203,7 @@
     .playlist-section { width: 100%; max-width: 400px; height: 400px; }
   }
 
-  /* 【優化】YouTube 隱藏播放器，改放畫面正中央底層，防瀏覽器節流 */
+  /* YouTube 隱藏播放器 */
   #ytplayer-container {
     position: fixed;
     top: 50%;
@@ -285,7 +285,7 @@
 
   </div>
 
-  <audio id="bgMusic"></audio>
+  <audio id="bgMusic" preload="metadata"></audio>
   
   <div id="ytplayer-container">
     <div id="ytplayer"></div>
@@ -295,14 +295,12 @@
     // ==========================================
     // 🔑 雙引擎核心設定 (YouTube API)
     // ==========================================
-    const YOUTUBE_API_KEY = 'AIzaSyBZSUuA-unnlexX-cbp7j-BbECcpZ6absk'; // 【請在此填入你的金鑰】
+    const YOUTUBE_API_KEY = ''; // 【請務必填入你的新金鑰】
     
     let ytPlayer;
     let isYtReady = false;
     let currentPlayMode = 'apple'; 
-    let ytPlayerErrorCount = 0; // 追蹤 YT 連續錯誤次數
 
-    // 顯示提示訊息的函數
     function showToast(message) {
       const toast = document.getElementById('toast');
       toast.textContent = message;
@@ -323,14 +321,10 @@
               'autoplay': 0, 
               'controls': 0, 
               'playsinline': 1,
-              // 防治 file:// 協定錯誤
               'origin': window.location.protocol === 'file:' ? '*' : window.location.origin 
             },
             events: {
-                'onReady': () => { 
-                  isYtReady = true; 
-                  console.log("YT 播放器初始化成功"); 
-                },
+                'onReady': () => { isYtReady = true; console.log("YT Ready"); },
                 'onStateChange': onYtStateChange,
                 'onError': onYtError
             }
@@ -339,25 +333,24 @@
 
     function onYtError(event) {
         let errorMsg = "YouTube 影片無法播放";
-        if(event.data === 101 || event.data === 150) errorMsg = "這首 YouTube 歌曲禁止在外部網站播放";
-        if(event.data === 2) errorMsg = "YouTube 找不到此影片參數";
+        if(event.data === 101 || event.data === 150) errorMsg = "此曲受版權保護，禁止外部播放";
         
         console.warn(errorMsg, event.data);
-        showToast(errorMsg + "，已降級為 Apple 預覽版");
+        showToast(errorMsg + "，已降級預覽版");
         
         currentPlayMode = 'apple';
         bgMusic.src = playlist[currentTrackIndex].audioUrl;
+        bgMusic.load();
         
         renderPlaylist();
         durationTimeEl.textContent = '0:30';
         
-        if (isPlaying) {
-            bgMusic.play().catch(e => console.log("需要使用者互動才能播放", e));
-        }
+        if (isPlaying) bgMusic.play().catch(e => console.log(e));
     }
 
     function onYtStateChange(event) {
-        if (event.data === YT.PlayerState.PLAYING) {
+        // 【修復 1】加入 YT.PlayerState.CUED (狀態 5)，這樣第一首歌還沒按下播放，就能拿到正確總時長！
+        if (event.data === YT.PlayerState.PLAYING || event.data === YT.PlayerState.CUED) {
             const duration = ytPlayer.getDuration();
             if (duration > 0) durationTimeEl.textContent = formatTime(duration);
         }
@@ -405,6 +398,17 @@
       return `${min}:${sec}`;
     }
 
+    // 【修復 2】建立一個輔助函數，用來在第一首歌時「等待 YT 初始化完成」
+    async function waitForYtReady() {
+        let retries = 0;
+        // 最多等 5 秒鐘 (50 * 100ms)
+        while (!isYtReady && retries < 50) {
+            await new Promise(r => setTimeout(r, 100));
+            retries++;
+        }
+        return isYtReady;
+    }
+
     async function fetchTopSongs() {
       try {
         const response = await fetch('https://itunes.apple.com/tw/rss/topsongs/limit=15/json');
@@ -428,16 +432,10 @@
         updateTrackUI(currentTrackIndex);
         renderPlaylist();
         
-        // 檢查是否在本地檔案環境
-        if(window.location.protocol === 'file:') {
-          showToast("注意：您目前使用本機檔案 (file://) 開啟，YouTube API 可能會被瀏覽器安全機制阻擋。建議使用 Local Server 開啟。");
-        }
-
         loadAudioEngine(playlist[currentTrackIndex], false);
 
       } catch (error) {
         trackTitle.textContent = "無法載入歌單，請檢查網路";
-        console.error("API Error:", error);
       }
     }
 
@@ -445,48 +443,48 @@
         bgMusic.pause();
         if(isYtReady && ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
         
-        if (YOUTUBE_API_KEY && YOUTUBE_API_KEY !== '請替換成你的新金鑰' && isYtReady) {
-            try {
-                const query = `${track.title} ${track.artist} audio`;
-                const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&videoEmbeddable=true&key=${YOUTUBE_API_KEY}`;
-                
-                const res = await fetch(url);
-                const data = await res.json();
-                
-                if (data.error) {
-                    showToast(`YouTube API 錯誤: ${data.error.message} (請檢查金鑰或配額)`);
-                    throw new Error(data.error.message);
-                }
-                
-                if (data.items && data.items.length > 0) {
-                    const videoId = data.items[0].id.videoId;
-                    currentPlayMode = 'youtube';
+        durationTimeEl.textContent = '載入中...';
+        
+        if (YOUTUBE_API_KEY && YOUTUBE_API_KEY !== '請替換成你的新金鑰') {
+            
+            // 【修復 3】確保第一次載入時，給 YouTube API 一點時間準備，避免競態條件
+            const ytIsReady = await waitForYtReady();
+            
+            if (ytIsReady) {
+                try {
+                    const query = `${track.title} ${track.artist} audio`;
+                    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&videoEmbeddable=true&key=${YOUTUBE_API_KEY}`;
                     
-                    if (shouldPlay) {
-                        ytPlayer.loadVideoById(videoId); 
-                    } else {
-                        ytPlayer.cueVideoById(videoId);  
+                    const res = await fetch(url);
+                    const data = await res.json();
+                    
+                    if (data.error) {
+                        showToast(`YouTube API 錯誤: ${data.error.message}`);
+                        throw new Error(data.error.message);
                     }
                     
-                    renderPlaylist(); 
-                    return; 
-                } else {
-                    showToast(`在 YouTube 找不到「${track.title}」的可用音檔，降級為 Apple 預覽`);
+                    if (data.items && data.items.length > 0) {
+                        const videoId = data.items[0].id.videoId;
+                        currentPlayMode = 'youtube';
+                        
+                        if (shouldPlay) ytPlayer.loadVideoById(videoId); 
+                        else ytPlayer.cueVideoById(videoId); // cueVideoById 會觸發 CUED 狀態，進而更新總時長
+                        
+                        renderPlaylist(); 
+                        return; 
+                    }
+                } catch(e) {
+                    console.warn("YT 載入失敗，降級至 Apple", e);
                 }
-            } catch(e) {
-                console.warn("YouTube 讀取失敗，降級至 Apple", e);
             }
-        } else if (YOUTUBE_API_KEY === '' || YOUTUBE_API_KEY === '請替換成你的新金鑰') {
-             // 只有第一次換歌時提示未輸入金鑰
-             if (currentTrackIndex === 0) console.log("未輸入 YouTube API 金鑰，使用預覽模式");
         }
 
         currentPlayMode = 'apple';
         bgMusic.src = track.audioUrl;
+        bgMusic.load(); // 強制讀取以觸發 loadedmetadata
         durationTimeEl.textContent = '0:30';
-        if (shouldPlay) {
-            bgMusic.play().catch(e => console.log("等待互動", e));
-        }
+        
+        if (shouldPlay) bgMusic.play().catch(e => console.log("等待互動", e));
         renderPlaylist();
     }
 
@@ -539,12 +537,8 @@
         playIcon.style.display = 'none';
         pauseIcon.style.display = 'block';
         
-        // 【關鍵修復】直接在點擊的瞬間觸發播放，繞過瀏覽器自動播放限制
-        if (currentPlayMode === 'youtube' && isYtReady) {
-            ytPlayer.playVideo();
-        } else {
-            bgMusic.play().catch(e => showToast("瀏覽器阻擋自動播放，請點擊畫面再試一次"));
-        }
+        if (currentPlayMode === 'youtube' && isYtReady) ytPlayer.playVideo();
+        else bgMusic.play().catch(e => showToast("瀏覽器阻擋播放，請點擊畫面重試"));
 
         tonearm.classList.add('playing');
         playTimeout = setTimeout(() => {
@@ -559,11 +553,8 @@
         record.classList.remove('playing');
         tonearm.classList.remove('playing');
         
-        if (currentPlayMode === 'youtube' && isYtReady) {
-            ytPlayer.pauseVideo();
-        } else {
-            bgMusic.pause();
-        }
+        if (currentPlayMode === 'youtube' && isYtReady) ytPlayer.pauseVideo();
+        else bgMusic.pause();
       }
     }
 
@@ -572,12 +563,10 @@
         isAnimating = true;
 
         const wasPlaying = isPlaying;
-        
-        // 【優化】切換歌曲時先立即暫停，避免聲音重疊
         if (currentPlayMode === 'youtube' && isYtReady) ytPlayer.pauseVideo();
         else bgMusic.pause();
 
-        if (isPlaying) togglePlayState(); // 更新 UI 狀態為暫停
+        if (isPlaying) togglePlayState(); 
         
         prevBtn.disabled = true;
         toggleBtn.disabled = true;
@@ -590,7 +579,6 @@
                 currentTrackIndex = targetIndex !== null ? targetIndex : (currentTrackIndex + 1) % playlist.length;
                 
                 updateTrackUI(currentTrackIndex);
-                // 在背景載入新歌
                 loadAudioEngine(playlist[currentTrackIndex], false);
 
                 recordWrapper.classList.remove('slide-out');
@@ -607,7 +595,6 @@
                             toggleBtn.disabled = false;
                             nextBtn.disabled = false;
                             
-                            // 動畫結束，如果原本在播，就繼續播放新歌
                             if (wasPlaying || targetIndex !== null) {
                                 if (!isPlaying) togglePlayState();
                             }
@@ -641,7 +628,6 @@
     function updateProgressUI(clientX) {
       const duration = getCurrentDuration();
       if (!duration) return 0;
-      
       const rect = progressContainer.getBoundingClientRect();
       let x = clientX - rect.left;
       x = Math.max(0, Math.min(x, rect.width));
@@ -653,7 +639,6 @@
       const targetTime = percent * duration;
       progressTooltip.textContent = formatTime(targetTime);
       currentTimeEl.textContent = formatTime(targetTime);
-
       return targetTime;
     }
 
