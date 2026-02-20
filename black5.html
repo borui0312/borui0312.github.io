@@ -295,7 +295,7 @@
     // ==========================================
     // 🔑 雙引擎核心設定 (YouTube API)
     // ==========================================
-    const YOUTUBE_API_KEY = 'AIzaSyBZSUuA-unnlexX-cbp7j-BbECcpZ6absk'; // 【請務必填入你的新金鑰】
+    const YOUTUBE_API_KEY = 'AIzaSyBZSUuA-unnlexX-cbp7j-BbECcpZ6absk'; // 【請務必填入你的金鑰】
     
     let ytPlayer;
     let isYtReady = false;
@@ -315,7 +315,6 @@
     firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
     function onYouTubeIframeAPIReady() {
-        // 修復：智慧判斷 origin，如果是 file:// 就不傳遞 origin 以免被 YT 阻擋
         let playerVars = { 'autoplay': 0, 'controls': 0, 'playsinline': 1 };
         if (window.location.protocol.startsWith('http')) {
             playerVars.origin = window.location.origin;
@@ -392,6 +391,65 @@
     let isAnimating = false;
     let isDragging = false;
 
+    // ==========================================
+    // 🧠 智慧過濾大腦 (新增邏輯)
+    // ==========================================
+
+    // 清理 Apple 歌名中的雜訊 (如: 電影主題曲、Remastered)
+    function cleanTitle(title) {
+        return title.replace(/\s*[\[\(\{【][^\]\)\}】]*[\]\)\}】]\s*/g, ' ').trim();
+    }
+
+    // 從多個結果中選出最像「官方完整版」的影片
+    function findBestVideoMatch(items, originalTitle, artist) {
+        const cleanedTitle = cleanTitle(originalTitle).toLowerCase();
+        const artistLower = artist.toLowerCase();
+        
+        // 遇到這些字眼直接扣大分，避免選到奇怪的版本
+        const badKeywords = ['cover', '翻唱', 'live', '現場', '演唱會', '伴奏', 'instrumental', 'karaoke', '反應', 'reaction', '1 hour', '1小時'];
+
+        let bestMatch = items[0]; // 預設給第一個
+        let highestScore = -999;
+
+        for (const item of items) {
+            let score = 0;
+            const videoTitle = item.snippet.title.toLowerCase();
+            const channelTitle = item.snippet.channelTitle.toLowerCase();
+
+            // 1. 歌手吻合度 (頻道名是歌手本身，通常就是官方)
+            if (channelTitle.includes(artistLower) || artistLower.includes(channelTitle) || channelTitle.includes('vevo')) {
+                score += 50;
+            } else if (videoTitle.includes(artistLower)) {
+                score += 20;
+            }
+
+            // 2. 歌名吻合度
+            if (videoTitle.includes(cleanedTitle)) {
+                score += 30;
+            }
+
+            // 3. 官方關鍵字加分
+            if (videoTitle.includes('official') || videoTitle.includes('mv') || videoTitle.includes('官方') || videoTitle.includes('audio')) {
+                score += 15;
+            }
+
+            // 4. 排除翻唱、Live等扣分關鍵字
+            for (const bad of badKeywords) {
+                if (videoTitle.includes(bad)) {
+                    score -= 50;
+                }
+            }
+
+            if (score > highestScore) {
+                highestScore = score;
+                bestMatch = item;
+            }
+        }
+        return bestMatch;
+    }
+
+    // ==========================================
+
     function formatTime(seconds) {
       if (isNaN(seconds) || seconds === Infinity || seconds === 0) return "0:00";
       const min = Math.floor(seconds / 60);
@@ -399,10 +457,8 @@
       return `${min}:${sec}`;
     }
 
-    // 等待 YT 初始化
     async function waitForYtReady() {
         let retries = 0;
-        // 縮短等待時間到最多 3 秒 (30 * 100ms)，避免體感卡頓太久
         while (!isYtReady && retries < 30) {
             await new Promise(r => setTimeout(r, 100));
             retries++;
@@ -431,10 +487,7 @@
         nextBtn.disabled = false;
         
         updateTrackUI(currentTrackIndex);
-        
-        // 觸發音檔讀取前，先渲染一次基礎版面
         renderPlaylist();
-        
         loadAudioEngine(playlist[currentTrackIndex], false);
 
       } catch (error) {
@@ -448,7 +501,7 @@
         
         durationTimeEl.textContent = '載入中...';
         
-        if (YOUTUBE_API_KEY && YOUTUBE_API_KEY !== '請替換成你的新金鑰') {
+        if (YOUTUBE_API_KEY && YOUTUBE_API_KEY !== '') {
             
             isSearchingYt = true;
             renderPlaylist(); 
@@ -457,9 +510,10 @@
             
             if (ytIsReady) {
                 try {
-                    const query = `${track.title} ${track.artist} audio`;
-                    // 修復：移除了過於嚴苛的 videoEmbeddable=true 過濾條件，恢復原本強大的搜尋能力
-                    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&key=${YOUTUBE_API_KEY}`;
+                    // 使用清洗過的歌名去搜尋，並要求回傳 5 個結果
+                    const cleanedTrackTitle = cleanTitle(track.title);
+                    const query = `${cleanedTrackTitle} ${track.artist}`;
+                    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=5&q=${encodeURIComponent(query)}&type=video&key=${YOUTUBE_API_KEY}`;
                     
                     const res = await fetch(url);
                     const data = await res.json();
@@ -470,7 +524,10 @@
                     }
                     
                     if (data.items && data.items.length > 0) {
-                        const videoId = data.items[0].id.videoId;
+                        // 呼叫過濾大腦，選出最佳版本
+                        const bestVideo = findBestVideoMatch(data.items, track.title, track.artist);
+                        const videoId = bestVideo.id.videoId;
+                        
                         currentPlayMode = 'youtube';
                         
                         if (shouldPlay) ytPlayer.loadVideoById(videoId); 
@@ -480,7 +537,7 @@
                         renderPlaylist(); 
                         return; 
                     } else {
-                        showToast(`找不到「${track.title}」，降級為預覽`);
+                        showToast(`找不到「${cleanedTrackTitle}」，降級為預覽`);
                     }
                 } catch(e) {
                     console.warn("YT 載入失敗，降級至 Apple", e);
