@@ -300,7 +300,7 @@
     let ytPlayer;
     let isYtReady = false;
     let currentPlayMode = 'apple'; 
-    let isSearchingYt = false; // 新增：追蹤是否正在尋找 YT 音源
+    let isSearchingYt = false; 
 
     function showToast(message) {
       const toast = document.getElementById('toast');
@@ -315,15 +315,16 @@
     firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
     function onYouTubeIframeAPIReady() {
+        // 修復：智慧判斷 origin，如果是 file:// 就不傳遞 origin 以免被 YT 阻擋
+        let playerVars = { 'autoplay': 0, 'controls': 0, 'playsinline': 1 };
+        if (window.location.protocol.startsWith('http')) {
+            playerVars.origin = window.location.origin;
+        }
+
         ytPlayer = new YT.Player('ytplayer', {
             height: '200',
             width: '200',
-            playerVars: { 
-              'autoplay': 0, 
-              'controls': 0, 
-              'playsinline': 1,
-              'origin': window.location.protocol === 'file:' ? '*' : window.location.origin 
-            },
+            playerVars: playerVars,
             events: {
                 'onReady': () => { isYtReady = true; console.log("YT Ready"); },
                 'onStateChange': onYtStateChange,
@@ -398,11 +399,11 @@
       return `${min}:${sec}`;
     }
 
-    // 延長等待時間，確保第一首歌載入時 YT API 絕對有足夠時間準備好
+    // 等待 YT 初始化
     async function waitForYtReady() {
         let retries = 0;
-        // 最多等待 10 秒鐘 (100 * 100ms)
-        while (!isYtReady && retries < 100) {
+        // 縮短等待時間到最多 3 秒 (30 * 100ms)，避免體感卡頓太久
+        while (!isYtReady && retries < 30) {
             await new Promise(r => setTimeout(r, 100));
             retries++;
         }
@@ -449,7 +450,6 @@
         
         if (YOUTUBE_API_KEY && YOUTUBE_API_KEY !== '請替換成你的新金鑰') {
             
-            // UI 狀態切換為搜尋中，讓使用者知道還沒失敗
             isSearchingYt = true;
             renderPlaylist(); 
             
@@ -458,7 +458,8 @@
             if (ytIsReady) {
                 try {
                     const query = `${track.title} ${track.artist} audio`;
-                    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&videoEmbeddable=true&key=${YOUTUBE_API_KEY}`;
+                    // 修復：移除了過於嚴苛的 videoEmbeddable=true 過濾條件，恢復原本強大的搜尋能力
+                    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&key=${YOUTUBE_API_KEY}`;
                     
                     const res = await fetch(url);
                     const data = await res.json();
@@ -475,7 +476,6 @@
                         if (shouldPlay) ytPlayer.loadVideoById(videoId); 
                         else ytPlayer.cueVideoById(videoId); 
                         
-                        // 成功找到 YT 影片，解除搜尋狀態並更新介面
                         isSearchingYt = false;
                         renderPlaylist(); 
                         return; 
@@ -510,7 +510,6 @@
         
         let sourceBadge = '';
         if (index === currentTrackIndex) {
-            // 根據不同狀態顯示對應的徽章
             if (isSearchingYt) {
                 sourceBadge = `<span class="item-source-badge" style="background:#555;color:#fff;">搜尋完整版中...</span>`;
             } else {
@@ -695,7 +694,6 @@
     function updateTimeLoop() {
         let total = getCurrentDuration();
         
-        // 【核心解法】獨立隨時更新總時長，即使還沒按播放鍵也能覆蓋「載入中」
         if (total > 0 && !isSearchingYt) {
             durationTimeEl.textContent = formatTime(total);
         }
@@ -737,5 +735,4 @@
   </script>
 
 </body>
-
 </html>
