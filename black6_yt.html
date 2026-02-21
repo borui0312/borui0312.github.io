@@ -375,8 +375,9 @@
     // 核心：改用 playlistItems API 抓取官方熱門播放清單，保證拿到 50 首
     async function fetchYouTubeTrending() {
         try {
-            // 這是 YouTube 官方維護的「全球百大音樂影片」播放清單 ID (Top Music Videos Global)
-            const playlistId = 'PL4fGSI1pQAqIQp2R9o6Lq9i5M_hFkXfB0';
+            // 換成一個超級穩定、官方公開的流行音樂歌單 ID (YouTube Pop Music Playlist)
+            // 💡 隱藏玩法：你可以去 YouTube 隨便找一個你喜歡的歌單，把網址裡 list= 後面的代碼複製貼到這裡！
+            const playlistId = 'PLFgquLnL59alCl_2zvMTMkNc4rjOvUyNl';
             
             // 使用 playlistItems 終端點
             const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${YOUTUBE_API_KEY}`;
@@ -385,7 +386,7 @@
 
             if (data.error) {
                 showToast(`API 錯誤: ${data.error.message}`);
-                document.getElementById('trackTitle').textContent = 'API 配額用盡或錯誤';
+                document.getElementById('trackTitle').textContent = 'API 發生錯誤';
                 return;
             }
 
