@@ -275,7 +275,7 @@
     <!-- 右側播放清單 -->
     <div class="playlist-section">
       <div class="playlist-header">
-        <div class="playlist-tab active">YouTube 熱門音樂 (50首)</div>
+        <div class="playlist-tab active" id="playlistTabTitle">YouTube 熱門音樂</div>
       </div>
       <ul class="playlist-items" id="playlistContainer"></ul>
     </div>
@@ -328,25 +328,18 @@
                     startApp(); 
                 },
                 'onStateChange': (e) => {
-                    // 狀態為播放(1)或準備就緒(5)時，更新總時長
                     if (e.data === YT.PlayerState.PLAYING || e.data === YT.PlayerState.CUED) {
                         const d = ytPlayer.getDuration();
                         if (d > 0) document.getElementById('durationTime').textContent = formatTime(d);
                     }
-                    
-                    // 播完後自動換下一首 (包含背景換歌機制)
                     if (e.data === YT.PlayerState.ENDED) {
-                        if (document.hidden) {
-                            changeTrackInstant();
-                        } else {
-                            changeTrackAnimated();
-                        }
+                        if (document.hidden) changeTrackInstant();
+                        else changeTrackAnimated();
                     }
                 },
                 'onError': (e) => {
                     console.warn("YouTube 播放錯誤", e.data);
                     showToast("此影片無法播放，自動跳下一首");
-                    // 發生錯誤時也支援背景換歌
                     setTimeout(() => {
                         if (document.hidden) changeTrackInstant();
                         else changeTrackAnimated();
@@ -372,48 +365,63 @@
         await fetchYouTubeTrending();
     }
 
-    // 核心：改用 playlistItems API 抓取官方熱門播放清單，保證拿到 50 首
+    // 🏆 核心優化：使用永不失效的 mostPopular API，並加入「自動翻頁」補滿 50 首機制
     async function fetchYouTubeTrending() {
         try {
-            // 換成一個超級穩定、官方公開的流行音樂歌單 ID (YouTube Pop Music Playlist)
-            // 💡 隱藏玩法：你可以去 YouTube 隨便找一個你喜歡的歌單，把網址裡 list= 後面的代碼複製貼到這裡！
-            const playlistId = 'PLFgquLnL59alCl_2zvMTMkNc4rjOvUyNl';
-            
-            // 使用 playlistItems 終端點
-            const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${YOUTUBE_API_KEY}`;
-            const res = await fetch(url);
-            const data = await res.json();
+            let tempPlaylist = [];
+            let targetCount = 50; // 目標抓取 50 首
 
-            if (data.error) {
-                showToast(`API 錯誤: ${data.error.message}`);
+            // 第 1 次呼叫 API：抓取第一頁
+            const url1 = `https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&maxResults=50&videoCategoryId=10&key=${YOUTUBE_API_KEY}`;
+            const res1 = await fetch(url1);
+            const data1 = await res1.json();
+
+            if (data1.error) {
+                showToast(`API 錯誤: ${data1.error.message}`);
                 document.getElementById('trackTitle').textContent = 'API 發生錯誤';
                 return;
             }
 
-            if (!data.items || data.items.length === 0) {
+            if (data1.items) {
+                tempPlaylist.push(...data1.items);
+            }
+
+            // 第 2 次呼叫 API：如果第一頁給的不足 50 首，且有下一頁 (nextPageToken)，自動翻頁去抓剩下的！
+            if (tempPlaylist.length < targetCount && data1.nextPageToken) {
+                const remaining = targetCount - tempPlaylist.length;
+                const url2 = `https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&maxResults=${remaining}&pageToken=${data1.nextPageToken}&videoCategoryId=10&key=${YOUTUBE_API_KEY}`;
+                const res2 = await fetch(url2);
+                const data2 = await res2.json();
+                
+                if (data2.items) {
+                    tempPlaylist.push(...data2.items);
+                }
+            }
+
+            if (tempPlaylist.length === 0) {
                 showToast("目前抓不到排行榜資料");
                 return;
             }
 
-            // 解析播放清單資料
-            playlist = data.items
-                .filter(item => item.snippet.title !== 'Private video' && item.snippet.title !== 'Deleted video') // 過濾失效影片
-                .map(item => {
-                    let artistName = item.snippet.videoOwnerChannelTitle ? item.snippet.videoOwnerChannelTitle.replace(' - Topic', '') : '未知歌手';
-                    
-                    // 確保能抓到封面圖片，如果沒有最高畫質就往下取
-                    let coverUrl = '';
-                    if(item.snippet.thumbnails) {
-                        coverUrl = item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url || '';
-                    }
+            // 將抓回來的資料格式化存入播放清單
+            playlist = tempPlaylist.map(item => {
+                let artistName = item.snippet.channelTitle ? item.snippet.channelTitle.replace(' - Topic', '') : '未知歌手';
+                
+                let coverUrl = '';
+                if(item.snippet.thumbnails) {
+                    coverUrl = item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url || '';
+                }
 
-                    return {
-                        id: item.snippet.resourceId.videoId, // playlistItems 的影片 ID 藏在 resourceId 裡面
-                        title: item.snippet.title,
-                        artist: artistName,
-                        cover: coverUrl
-                    };
+                return {
+                    id: item.id, // 直接使用影片 ID
+                    title: item.snippet.title,
+                    artist: artistName,
+                    cover: coverUrl
+                };
             });
+
+            // 更新介面顯示實際抓到的數量
+            document.getElementById('playlistTabTitle').textContent = `YouTube 全球熱門 (${playlist.length}首)`;
 
             // 解鎖控制按鈕
             document.getElementById('prevBtn').disabled = false;
