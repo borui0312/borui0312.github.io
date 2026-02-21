@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YouTube 熱門黑膠播放器</title>
+<title>black 播放器</title>
 <style>
   :root {
     --bg-color: #0f0f0f;
@@ -226,7 +226,7 @@
     <!-- 左側播放器 -->
     <div class="player-section">
       <div class="track-info" id="trackInfoBox">
-        <p class="track-title" id="trackTitle">讀取 K-Pop 音樂庫中...</p>
+        <p class="track-title" id="trackTitle">準備讀取全球熱門...</p>
         <p class="track-subtitle" id="trackArtist"></p>
       </div>
 
@@ -275,7 +275,7 @@
     <!-- 右側播放清單 -->
     <div class="playlist-section">
       <div class="playlist-header">
-        <div class="playlist-tab active" id="playlistTabTitle">K-Pop 熱門音樂</div>
+        <div class="playlist-tab active" id="playlistTabTitle">載入中...</div>
       </div>
       <ul class="playlist-items" id="playlistContainer"></ul>
     </div>
@@ -365,14 +365,48 @@
         await fetchYouTubeTrending();
     }
 
-    // 🏆 保證 50 首：改用公開的超大型 K-Pop 歌單 (不會被 YouTube 隱藏)
+    // 🏆 終極破解版：主動抓取公開鏡像歌單 + 金剛不壞降級防呆機制
     async function fetchYouTubeTrending() {
+        // 這是網友精心維護的「全球百大熱門音樂 (Global Top 100)」公開歌單
+        // 用這個可以 100% 繞過 YouTube API 鎖住官方系統榜單 (PL4f 開頭) 的問題
+        const targetPlaylistId = 'PLMC9KNkIncKvYin_USF1qoJQnIyMAfRxl'; 
+        let tempPlaylist = [];
+
         try {
-            // 這是一個極度穩定且包含 300+ 首 MV 的「2026 KPop Music Video」公開歌單
-            const playlistId = 'PLFdsgSPYRNJYgsB4aXt9mdUGbjzlZUH-u';
-            
-            // 使用 playlistItems API，我們只要抓 50 首，它保證吐出 50 首
-            const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${YOUTUBE_API_KEY}`;
+            document.getElementById('trackTitle').textContent = '讀取全球百大歌單中 (1/2)...';
+
+            // 第一次呼叫：抓取前 50 首
+            const url1 = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${targetPlaylistId}&key=${YOUTUBE_API_KEY}`;
+            const res1 = await fetch(url1);
+            const data1 = await res1.json();
+
+            // 【關鍵】如果這個歌單未來不幸被刪除了，直接拋出錯誤，讓 catch 區塊自動切換為備用發燒榜！
+            if (data1.error) throw new Error(data1.error.message);
+            if (data1.items) tempPlaylist.push(...data1.items);
+
+            // 第二次呼叫：如果這歌單很長 (有下一頁)，繼續抓剩下的湊滿 100 首！
+            if (data1.nextPageToken) {
+                document.getElementById('trackTitle').textContent = '讀取全球百大歌單中 (2/2)...';
+                const url2 = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&pageToken=${data1.nextPageToken}&playlistId=${targetPlaylistId}&key=${YOUTUBE_API_KEY}`;
+                const res2 = await fetch(url2);
+                const data2 = await res2.json();
+                if (data2.items) tempPlaylist.push(...data2.items);
+            }
+
+            processPlaylistData(tempPlaylist, '全球百大熱門神曲');
+
+        } catch (e) {
+            console.warn("自訂歌單讀取失敗，自動啟動防呆備用方案：", e);
+            // 萬一指定的歌單失效，絕對不讓畫面壞掉，瞬間切換去抓當下可用的發燒音樂！
+            showToast("原始歌單無法讀取，自動為您載入 YouTube 發燒音樂！");
+            await fetchFallbackTrending();
+        }
+    }
+
+    // 🛡️ 備用方案：抓取預設的 YouTube 音樂發燒榜
+    async function fetchFallbackTrending() {
+        try {
+            const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&maxResults=50&videoCategoryId=10&key=${YOUTUBE_API_KEY}`;
             const res = await fetch(url);
             const data = await res.json();
 
@@ -382,49 +416,69 @@
                 return;
             }
 
-            if (!data.items || data.items.length === 0) {
-                showToast("目前抓不到排行榜資料");
-                return;
+            processPlaylistData(data.items || [], 'YouTube 發燒音樂');
+        } catch (e) {
+            showToast("備用榜單也無法載入，請檢查網路連線");
+        }
+    }
+
+    // 統合處理資料的函數 (支援 playlistItems 與 videos 兩種不同的 API 結構)
+    function processPlaylistData(items, titlePrefix) {
+        if (items.length === 0) {
+            showToast("目前抓不到排行榜資料");
+            return;
+        }
+
+        const uniqueVideos = [];
+        const seenIds = new Set();
+
+        // 整理資料並過濾掉重複或被刪除的影片
+        for (const item of items) {
+            const title = item.snippet.title;
+            if (title === 'Private video' || title === 'Deleted video') continue;
+
+            // 判斷是從哪個 API 來的，聰明抓取正確的影片 ID
+            const videoId = item.snippet.resourceId ? item.snippet.resourceId.videoId : (typeof item.id === 'string' ? item.id : item.id.videoId);
+
+            if (videoId && !seenIds.has(videoId)) {
+                seenIds.add(videoId);
+                uniqueVideos.push(item);
+            }
+        }
+
+        // 解析並存入播放清單
+        playlist = uniqueVideos.map(item => {
+            let artistName = item.snippet.channelTitle || item.snippet.videoOwnerChannelTitle || '未知歌手';
+            artistName = artistName.replace(' - Topic', '').replace('VEVO', '').replace('Official', '').trim();
+            
+            let coverUrl = '';
+            if(item.snippet.thumbnails) {
+                coverUrl = item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url || '';
             }
 
-            // 解析播放清單資料，並過濾掉可能失效的影片
-            playlist = data.items
-                .filter(item => item.snippet.title !== 'Private video' && item.snippet.title !== 'Deleted video')
-                .map(item => {
-                    // 讓歌手名稱更乾淨
-                    let artistName = item.snippet.videoOwnerChannelTitle ? item.snippet.videoOwnerChannelTitle.replace(' - Topic', '').replace('Official', '').trim() : '未知歌手';
-                    
-                    let coverUrl = '';
-                    if(item.snippet.thumbnails) {
-                        coverUrl = item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url || '';
-                    }
+            const videoId = item.snippet.resourceId ? item.snippet.resourceId.videoId : (typeof item.id === 'string' ? item.id : item.id.videoId);
 
-                    return {
-                        id: item.snippet.resourceId.videoId, // playlistItems 的影片 ID 藏在 resourceId 裡面
-                        title: item.snippet.title,
-                        artist: artistName,
-                        cover: coverUrl
-                    };
-            });
+            return {
+                id: videoId, 
+                title: item.snippet.title,
+                artist: artistName,
+                cover: coverUrl
+            };
+        });
 
-            // 更新介面顯示實際抓到的數量 (通常會剛好是 50 首)
-            document.getElementById('playlistTabTitle').textContent = `K-Pop 熱門 (${playlist.length}首)`;
+        // 更新介面顯示實際抓到的數量
+        document.getElementById('playlistTabTitle').textContent = `${titlePrefix} (${playlist.length}首)`;
 
-            // 解鎖控制按鈕
-            document.getElementById('prevBtn').disabled = false;
-            document.getElementById('toggleBtn').disabled = false;
-            document.getElementById('nextBtn').disabled = false;
+        // 解鎖控制按鈕
+        document.getElementById('prevBtn').disabled = false;
+        document.getElementById('toggleBtn').disabled = false;
+        document.getElementById('nextBtn').disabled = false;
 
-            updateTrackUI(0);
-            renderPlaylist();
-            
-            // 將第一首歌送入隱藏的 YT 播放器準備
-            ytPlayer.cueVideoById(playlist[0].id);
-
-        } catch (e) {
-            console.error(e);
-            showToast("無法載入排行榜，請檢查網路連線");
-        }
+        updateTrackUI(0);
+        renderPlaylist();
+        
+        // 將第一首歌送入隱藏的 YT 播放器準備
+        ytPlayer.cueVideoById(playlist[0].id);
     }
 
     function renderPlaylist() {
