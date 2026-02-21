@@ -275,7 +275,7 @@
     <!-- 右側播放清單 -->
     <div class="playlist-section">
       <div class="playlist-header">
-        <div class="playlist-tab active">YouTube 台灣熱門音樂</div>
+        <div class="playlist-tab active">YouTube 熱門音樂</div>
       </div>
       <ul class="playlist-items" id="playlistContainer"></ul>
     </div>
@@ -334,13 +334,11 @@
                         if (d > 0) document.getElementById('durationTime').textContent = formatTime(d);
                     }
                     
-                    // 【修復：補回背景換歌機制】
+                    // 播完後自動換下一首 (包含背景換歌機制)
                     if (e.data === YT.PlayerState.ENDED) {
                         if (document.hidden) {
-                            // 如果分頁在背景，跳過動畫瞬間換歌
                             changeTrackInstant();
                         } else {
-                            // 如果分頁在前景，播完後優雅換歌
                             changeTrackAnimated();
                         }
                     }
@@ -374,11 +372,11 @@
         await fetchYouTubeTrending();
     }
 
-    // 核心：直接抓取 YouTube 音樂排行榜 (videoCategoryId=10 代表音樂類別)
+    // 核心：直接抓取 YouTube 音樂排行榜，取消地區限制，數量拉到 50
     async function fetchYouTubeTrending() {
         try {
-            // chart=mostPopular 直接索取熱門排行，我們直接拿影片 ID 播放，準確率 100%
-            const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&chart=mostPopular&regionCode=TW&maxResults=50&videoCategoryId=10&key=${YOUTUBE_API_KEY}`;
+            // 移除了 regionCode=TW，並將 maxResults 設為上限 50
+            const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&chart=mostPopular&maxResults=50&videoCategoryId=10&key=${YOUTUBE_API_KEY}`;
             const res = await fetch(url);
             const data = await res.json();
 
@@ -395,7 +393,6 @@
 
             // 直接把 YouTube 熱門影片資料存入播放清單
             playlist = data.items.map(item => {
-                // 稍微清理一下頻道名稱中的 " - Topic" 後綴
                 let artistName = item.snippet.channelTitle.replace(' - Topic', '');
                 return {
                     id: item.id, // 最重要的影片 ID
@@ -459,7 +456,6 @@
       const tonearm = document.getElementById('tonearm');
       const record = document.getElementById('record');
 
-      // 攔截：如果播放器還沒準備好，不執行
       if (!isYtReady) return;
 
       if (!isPlaying) {
@@ -489,7 +485,7 @@
         isAnimating = true;
         
         const wasPlaying = isPlaying;
-        if (isPlaying) togglePlayState(); // 先暫停現有歌曲並抬起唱臂
+        if (isPlaying) togglePlayState(); 
 
         document.getElementById('trackInfoBox').classList.add('fading');
         document.getElementById('recordWrapper').classList.add('slide-out');
@@ -500,7 +496,6 @@
             updateTrackUI(currentTrackIndex);
             renderPlaylist();
             
-            // 送入新歌 ID 到播放器，但不自動播放 (由後續 togglePlayState 接手)
             ytPlayer.cueVideoById(playlist[currentTrackIndex].id);
 
             document.getElementById('recordWrapper').classList.remove('slide-out');
@@ -513,7 +508,6 @@
                     
                     setTimeout(() => {
                         isAnimating = false;
-                        // 如果換歌前是播放狀態，或是使用者手動點擊清單，就自動放下唱臂播放
                         if (wasPlaying || target !== null) {
                             if (!isPlaying) togglePlayState();
                         }
@@ -523,8 +517,6 @@
         }, 500);
     }
 
-    // 【修復：補回背景換歌機制】
-    // 當分頁在背景時，不播動畫，直接改變狀態並播放
     function changeTrackInstant(target = null) {
         currentTrackIndex = target !== null ? target : (currentTrackIndex + 1) % playlist.length;
         updateTrackUI(currentTrackIndex);
@@ -551,7 +543,7 @@
       
       const rect = progressContainer.getBoundingClientRect();
       let percent = (clientX - rect.left) / rect.width;
-      percent = Math.max(0, Math.min(1, percent)); // 限制在 0~1 之間
+      percent = Math.max(0, Math.min(1, percent));
       
       document.getElementById('progressBar').style.width = `${percent * 100}%`;
       document.getElementById('progressThumb').style.left = `${percent * 100}%`;
@@ -561,7 +553,6 @@
       return percent * duration;
     }
 
-    // 電腦滑鼠拖曳
     progressContainer.addEventListener('mousedown', (e) => {
         isDragging = true; 
         progressContainer.classList.add('dragging'); 
@@ -578,7 +569,6 @@
         } 
     });
 
-    // 手機觸控拖曳
     progressContainer.addEventListener('touchstart', (e) => {
         isDragging = true;
         progressContainer.classList.add('dragging');
@@ -598,7 +588,6 @@
         }
     });
 
-    // --- 時間更新循環 ---
     function updateLoop() {
         if (isPlaying && !isDragging && isYtReady && ytPlayer.getCurrentTime) {
             const cur = ytPlayer.getCurrentTime();
@@ -614,7 +603,6 @@
     }
     requestAnimationFrame(updateLoop);
 
-    // 綁定控制按鈕
     document.getElementById('toggleBtn').addEventListener('click', togglePlayState);
     document.getElementById('nextBtn').addEventListener('click', () => changeTrackAnimated());
     document.getElementById('prevBtn').addEventListener('click', () => {
