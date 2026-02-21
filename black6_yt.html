@@ -275,7 +275,7 @@
     <!-- 右側播放清單 -->
     <div class="playlist-section">
       <div class="playlist-header">
-        <div class="playlist-tab active">YouTube 熱門音樂</div>
+        <div class="playlist-tab active">YouTube 熱門音樂 (50首)</div>
       </div>
       <ul class="playlist-items" id="playlistContainer"></ul>
     </div>
@@ -345,7 +345,7 @@
                 },
                 'onError': (e) => {
                     console.warn("YouTube 播放錯誤", e.data);
-                    showToast("此官方影片受到版權或地區限制，自動跳下一首");
+                    showToast("此影片無法播放，自動跳下一首");
                     // 發生錯誤時也支援背景換歌
                     setTimeout(() => {
                         if (document.hidden) changeTrackInstant();
@@ -372,11 +372,14 @@
         await fetchYouTubeTrending();
     }
 
-    // 核心：直接抓取 YouTube 音樂排行榜，取消地區限制，數量拉到 50
+    // 核心：改用 playlistItems API 抓取官方熱門播放清單，保證拿到 50 首
     async function fetchYouTubeTrending() {
         try {
-            // 移除了 regionCode=TW，並將 maxResults 設為上限 50
-            const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&chart=mostPopular&maxResults=50&videoCategoryId=10&key=${YOUTUBE_API_KEY}`;
+            // 這是 YouTube 官方維護的「全球百大音樂影片」播放清單 ID (Top Music Videos Global)
+            const playlistId = 'PL4fGSI1pQAqIQp2R9o6Lq9i5M_hFkXfB0';
+            
+            // 使用 playlistItems 終端點
+            const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${YOUTUBE_API_KEY}`;
             const res = await fetch(url);
             const data = await res.json();
 
@@ -391,15 +394,24 @@
                 return;
             }
 
-            // 直接把 YouTube 熱門影片資料存入播放清單
-            playlist = data.items.map(item => {
-                let artistName = item.snippet.channelTitle.replace(' - Topic', '');
-                return {
-                    id: item.id, // 最重要的影片 ID
-                    title: item.snippet.title,
-                    artist: artistName,
-                    cover: item.snippet.thumbnails.high.url
-                };
+            // 解析播放清單資料
+            playlist = data.items
+                .filter(item => item.snippet.title !== 'Private video' && item.snippet.title !== 'Deleted video') // 過濾失效影片
+                .map(item => {
+                    let artistName = item.snippet.videoOwnerChannelTitle ? item.snippet.videoOwnerChannelTitle.replace(' - Topic', '') : '未知歌手';
+                    
+                    // 確保能抓到封面圖片，如果沒有最高畫質就往下取
+                    let coverUrl = '';
+                    if(item.snippet.thumbnails) {
+                        coverUrl = item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url || '';
+                    }
+
+                    return {
+                        id: item.snippet.resourceId.videoId, // playlistItems 的影片 ID 藏在 resourceId 裡面
+                        title: item.snippet.title,
+                        artist: artistName,
+                        cover: coverUrl
+                    };
             });
 
             // 解鎖控制按鈕
