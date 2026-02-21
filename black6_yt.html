@@ -333,15 +333,26 @@
                         const d = ytPlayer.getDuration();
                         if (d > 0) document.getElementById('durationTime').textContent = formatTime(d);
                     }
-                    // 播完後自動換下一首
+                    
+                    // 【修復：補回背景換歌機制】
                     if (e.data === YT.PlayerState.ENDED) {
-                        changeTrackAnimated();
+                        if (document.hidden) {
+                            // 如果分頁在背景，跳過動畫瞬間換歌
+                            changeTrackInstant();
+                        } else {
+                            // 如果分頁在前景，播完後優雅換歌
+                            changeTrackAnimated();
+                        }
                     }
                 },
                 'onError': (e) => {
                     console.warn("YouTube 播放錯誤", e.data);
                     showToast("此官方影片受到版權或地區限制，自動跳下一首");
-                    setTimeout(() => changeTrackAnimated(), 2000);
+                    // 發生錯誤時也支援背景換歌
+                    setTimeout(() => {
+                        if (document.hidden) changeTrackInstant();
+                        else changeTrackAnimated();
+                    }, 2000);
                 }
             }
         });
@@ -367,7 +378,7 @@
     async function fetchYouTubeTrending() {
         try {
             // chart=mostPopular 直接索取熱門排行，我們直接拿影片 ID 播放，準確率 100%
-            const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&chart=mostPopular&regionCode=TW&maxResults=15&videoCategoryId=10&key=${YOUTUBE_API_KEY}`;
+            const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&chart=mostPopular&regionCode=TW&maxResults=50&videoCategoryId=10&key=${YOUTUBE_API_KEY}`;
             const res = await fetch(url);
             const data = await res.json();
 
@@ -510,6 +521,24 @@
                 });
             });
         }, 500);
+    }
+
+    // 【修復：補回背景換歌機制】
+    // 當分頁在背景時，不播動畫，直接改變狀態並播放
+    function changeTrackInstant(target = null) {
+        currentTrackIndex = target !== null ? target : (currentTrackIndex + 1) % playlist.length;
+        updateTrackUI(currentTrackIndex);
+        renderPlaylist();
+
+        isAnimating = false;
+        document.getElementById('recordWrapper').classList.remove('slide-out', 'ready-to-slide-in');
+        document.getElementById('trackInfoBox').classList.remove('fading');
+
+        if (isPlaying) {
+            ytPlayer.loadVideoById(playlist[currentTrackIndex].id);
+        } else {
+            ytPlayer.cueVideoById(playlist[currentTrackIndex].id);
+        }
     }
 
     // --- 進度條拖曳邏輯 ---
