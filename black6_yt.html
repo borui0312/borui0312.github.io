@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YouTube 熱門黑膠播放器</title>
+<style>
+  :root {
+    --bg-color: #0f0f0f;
+    --player-bg: #212121;
+    --list-hover: #2a2a2a;
+    --list-active: #333333;
+    --accent-color: #d4af37;
+    --text-primary: #ffffff;
+    --text-secondary: #aaaaaa;
+  }
+
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    background-color: var(--bg-color);
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text-primary);
+  }
+
+  /* --- 錯誤提示框 (Toast) --- */
+  #toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #ff4444;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: bold;
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+  #toast.show { opacity: 1; }
+
+  /* --- 整體版面配置 --- */
+  .app-container {
+    display: flex;
+    flex-direction: row;
+    gap: 40px;
+    width: 100%;
+    max-width: 1000px;
+    padding: 20px;
+  }
+
+  .player-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    max-width: 400px;
+  }
+
+  .track-info {
+    text-align: center;
+    margin-bottom: 20px;
+    min-height: 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.3s ease;
+    width: 100%;
+    padding: 0 10px;
+    box-sizing: border-box;
+  }
+  .track-info.fading { opacity: 0; }
+  .track-title { font-size: 22px; font-weight: bold; margin: 0; color: var(--text-primary); line-height: 1.4; }
+  .track-subtitle { font-size: 14px; color: var(--text-secondary); margin-top: 5px; }
+
+  /* 黑膠底座與動畫 */
+  .turntable {
+    position: relative;
+    width: 350px;
+    height: 350px;
+    background: var(--player-bg);
+    border-radius: 20px;
+    box-shadow: 10px 10px 30px rgba(0, 0, 0, 0.6), inset 2px 2px 5px rgba(255, 255, 255, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 25px;
+    overflow: hidden;
+  }
+
+  .record-wrapper {
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s ease;
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+  .record-wrapper.slide-out { transform: translateX(-120%) scale(0.8); opacity: 0; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease; }
+  .record-wrapper.ready-to-slide-in { transition: none !important; transform: translateX(120%) scale(0.8); opacity: 0; }
+
+  .record {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #111;
+    border-radius: 50%;
+    background-image: repeating-radial-gradient(#111, #111 4px, #1a1a1a 5px, #111 6px);
+    box-shadow: 0 0 15px rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: spin 3s linear infinite;
+    animation-play-state: paused;
+  }
+  .record.playing { animation-play-state: running; }
+  @keyframes spin { 100% { transform: rotate(360deg); } }
+
+  .label {
+    width: 100px;
+    height: 100px;
+    background-color: #333;
+    background-size: cover;
+    background-position: center;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    border: 2px solid var(--accent-color);
+    transition: background-image 0.2s ease;
+  }
+  .hole { position: absolute; width: 12px; height: 12px; background: var(--player-bg); border-radius: 50%; box-shadow: inset 0 2px 4px rgba(0,0,0,0.6); }
+
+  /* 白色唱臂 */
+  .tonearm {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 80px;
+    height: 200px;
+    transform-origin: 30px 30px; 
+    transform: rotate(-15deg);
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 10;
+  }
+  .tonearm.playing { transform: rotate(25deg); }
+  .pivot { position: absolute; top: 10px; left: 10px; width: 40px; height: 40px; border-radius: 50%; background: radial-gradient(circle, #ffffff, #cccccc); box-shadow: 0 4px 8px rgba(0,0,0,0.6); }
+  .arm { position: absolute; top: 30px; left: 26px; width: 8px; height: 140px; background: linear-gradient(to right, #eeeeee, #ffffff, #dddddd); border-radius: 4px; }
+  .headshell { position: absolute; top: 160px; left: 14px; width: 20px; height: 35px; background: #333; border-radius: 3px; transform: rotate(25deg); box-shadow: 2px 2px 5px rgba(0,0,0,0.5); }
+
+  /* 進度條區域 */
+  .progress-wrapper { width: 350px; margin-top: 10px; margin-bottom: 25px; display: flex; flex-direction: column; gap: 12px; }
+  .progress-container { width: 100%; height: 6px; background-color: #444; border-radius: 3px; cursor: pointer; position: relative; padding: 10px 0; margin: -10px 0; background-clip: content-box; }
+  .progress-bar { position: absolute; top: 10px; left: 0; height: 6px; background-color: var(--accent-color); width: 0%; border-radius: 3px; pointer-events: none; }
+  .progress-thumb { position: absolute; top: 13px; left: 0%; transform: translate(-50%, -50%); width: 14px; height: 14px; background-color: var(--accent-color); border-radius: 50%; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; }
+  .progress-tooltip { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: rgba(30, 30, 30, 0.9); border: 1px solid #444; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; opacity: 0; transition: opacity 0.2s ease; white-space: nowrap; pointer-events: none; font-variant-numeric: tabular-nums; }
+  .progress-container:hover .progress-thumb, .progress-container.dragging .progress-thumb { opacity: 1; }
+  .progress-container.dragging .progress-tooltip { opacity: 1; }
+  .progress-container:not(.dragging) .progress-bar, .progress-container:not(.dragging) .progress-thumb { transition: width 0.1s linear, left 0.1s linear; }
+  .time-info { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+  /* 控制按鈕 */
+  .controls { display: flex; gap: 40px; align-items: center; justify-content: center; margin-top: 10px; }
+  .controls button { background: transparent; border: none; padding: 0; color: var(--text-primary); cursor: pointer; transition: transform 0.2s ease, opacity 0.2s ease; display: flex; align-items: center; justify-content: center; }
+  .controls button svg { fill: currentColor; width: 32px; height: 32px; }
+  .controls #toggleBtn svg { width: 52px; height: 52px; }
+  .controls button:hover:not(:disabled) { transform: scale(1.1); }
+  .controls button:active:not(:disabled) { transform: scale(0.95); }
+  .controls button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* 右側清單 */
+  .playlist-section { flex: 1; background: #000000; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; height: 600px; border: 1px solid #333; }
+  .playlist-header { display: flex; padding: 0 20px; border-bottom: 1px solid #333; background: #111; }
+  .playlist-tab { padding: 15px 20px; font-size: 15px; color: var(--text-primary); font-weight: bold; border-bottom: 2px solid var(--text-primary); }
+  .playlist-items { flex: 1; overflow-y: auto; padding: 10px 0; margin: 0; list-style: none; }
+  .playlist-items::-webkit-scrollbar { width: 8px; }
+  .playlist-items::-webkit-scrollbar-track { background: transparent; }
+  .playlist-items::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+  .playlist-items::-webkit-scrollbar-thumb:hover { background: #777; }
+  .playlist-item { display: flex; align-items: center; padding: 10px 20px; gap: 15px; cursor: pointer; transition: background 0.2s; }
+  .playlist-item:hover { background-color: var(--list-hover); }
+  .playlist-item.active { background-color: var(--list-active); }
+  .playlist-item img { width: 40px; height: 40px; border-radius: 4px; object-fit: cover; }
+  .playlist-item .item-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 4px; }
+  .playlist-item .item-title { font-size: 14px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .playlist-item.active .item-title { color: var(--accent-color); font-weight: bold; }
+  .playlist-item .item-artist { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  @media (max-width: 768px) {
+    .app-container { flex-direction: column; align-items: center; }
+    .player-section { margin-bottom: 20px; }
+    .playlist-section { width: 100%; max-width: 400px; height: 400px; }
+  }
+
+  /* YouTube 隱藏播放器，確保有實體大小但不影響畫面 */
+  #ytplayer-container {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 200px;
+    height: 200px;
+    z-index: -100;
+    opacity: 0.01; 
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+  <div id="toast">提示訊息</div>
+
+  <div class="app-container">
+    
+    <!-- 左側播放器 -->
+    <div class="player-section">
+      <div class="track-info" id="trackInfoBox">
+        <p class="track-title" id="trackTitle">讀取 YouTube 音樂庫中...</p>
+        <p class="track-subtitle" id="trackArtist"></p>
+      </div>
+
+      <div class="turntable">
+        <div class="record-wrapper" id="recordWrapper">
+          <div class="record" id="record">
+            <div class="label" id="recordLabel">
+              <div class="hole"></div>
+            </div>
+          </div>
+        </div>
+        <div class="tonearm" id="tonearm">
+          <div class="pivot"></div>
+          <div class="arm"></div>
+          <div class="headshell"></div>
+        </div>
+      </div>
+
+      <div class="progress-wrapper">
+        <div class="progress-container" id="progressContainer">
+          <div class="progress-bar" id="progressBar"></div>
+          <div class="progress-thumb" id="progressThumb">
+             <div class="progress-tooltip" id="progressTooltip">0:00</div>
+          </div>
+        </div>
+        <div class="time-info">
+          <span id="currentTime">0:00</span>
+          <span id="durationTime">0:00</span>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="prevBtn" disabled>
+          <svg viewBox="0 0 24 24"><rect x="5" y="6" width="2" height="12" /><polygon points="18,6 7,12 18,18" /></svg>
+        </button>
+        <button id="toggleBtn" disabled>
+          <svg id="playIcon" viewBox="0 0 24 24"><polygon points="6,4 21,12 6,20" /></svg>
+          <svg id="pauseIcon" viewBox="0 0 24 24" style="display: none;"><rect x="5" y="4" width="5" height="16" /><rect x="14" y="4" width="5" height="16" /></svg>
+        </button>
+        <button id="nextBtn" disabled>
+          <svg viewBox="0 0 24 24"><polygon points="6,6 17,12 6,18" /><rect x="17" y="6" width="2" height="12" /></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 右側播放清單 -->
+    <div class="playlist-section">
+      <div class="playlist-header">
+        <div class="playlist-tab active">YouTube 台灣熱門音樂</div>
+      </div>
+      <ul class="playlist-items" id="playlistContainer"></ul>
+    </div>
+
+  </div>
+
+  <div id="ytplayer-container">
+    <div id="ytplayer"></div>
+  </div>
+
+  <script>
+    // ==========================================
+    // 🔑 YouTube API 設定
+    // ==========================================
+    const YOUTUBE_API_KEY = 'AIzaSyBZSUuA-unnlexX-cbp7j-BbECcpZ6absk'; // 【請務必填入你的 API Key】
+    
+    let ytPlayer;
+    let isYtReady = false;
+    let playlist = [];
+    let currentTrackIndex = 0;
+    let isPlaying = false;
+    let isAnimating = false;
+    let isDragging = false;
+    let playTimeout;
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 4000);
+    }
+
+    // 初始化 YouTube IFrame API
+    const tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(tag);
+
+    window.onYouTubeIframeAPIReady = function() {
+        let playerVars = { 'autoplay': 0, 'controls': 0, 'playsinline': 1 };
+        if (window.location.protocol.startsWith('http')) {
+            playerVars.origin = window.location.origin;
+        }
+
+        ytPlayer = new YT.Player('ytplayer', {
+            height: '200', width: '200',
+            playerVars: playerVars,
+            events: {
+                'onReady': () => { 
+                    isYtReady = true; 
+                    startApp(); 
+                },
+                'onStateChange': (e) => {
+                    // 狀態為播放(1)或準備就緒(5)時，更新總時長
+                    if (e.data === YT.PlayerState.PLAYING || e.data === YT.PlayerState.CUED) {
+                        const d = ytPlayer.getDuration();
+                        if (d > 0) document.getElementById('durationTime').textContent = formatTime(d);
+                    }
+                    // 播完後自動換下一首
+                    if (e.data === YT.PlayerState.ENDED) {
+                        changeTrackAnimated();
+                    }
+                },
+                'onError': (e) => {
+                    console.warn("YouTube 播放錯誤", e.data);
+                    showToast("此官方影片受到版權或地區限制，自動跳下一首");
+                    setTimeout(() => changeTrackAnimated(), 2000);
+                }
+            }
+        });
+    };
+
+    function formatTime(s) {
+      if (isNaN(s) || s === Infinity || s === 0) return "0:00";
+      const m = Math.floor(s / 60);
+      const sec = Math.floor(s % 60).toString().padStart(2, '0');
+      return `${m}:${sec}`;
+    }
+
+    async function startApp() {
+        if (!YOUTUBE_API_KEY) {
+            showToast("請在程式碼中填入 YouTube API Key");
+            document.getElementById('trackTitle').textContent = '等待輸入 API Key...';
+            return;
+        }
+        await fetchYouTubeTrending();
+    }
+
+    // 核心：直接抓取 YouTube 音樂排行榜 (videoCategoryId=10 代表音樂類別)
+    async function fetchYouTubeTrending() {
+        try {
+            // chart=mostPopular 直接索取熱門排行，我們直接拿影片 ID 播放，準確率 100%
+            const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&chart=mostPopular&regionCode=TW&maxResults=15&videoCategoryId=10&key=${YOUTUBE_API_KEY}`;
+            const res = await fetch(url);
+            const data = await res.json();
+
+            if (data.error) {
+                showToast(`API 錯誤: ${data.error.message}`);
+                document.getElementById('trackTitle').textContent = 'API 配額用盡或錯誤';
+                return;
+            }
+
+            if (!data.items || data.items.length === 0) {
+                showToast("目前抓不到排行榜資料");
+                return;
+            }
+
+            // 直接把 YouTube 熱門影片資料存入播放清單
+            playlist = data.items.map(item => {
+                // 稍微清理一下頻道名稱中的 " - Topic" 後綴
+                let artistName = item.snippet.channelTitle.replace(' - Topic', '');
+                return {
+                    id: item.id, // 最重要的影片 ID
+                    title: item.snippet.title,
+                    artist: artistName,
+                    cover: item.snippet.thumbnails.high.url
+                };
+            });
+
+            // 解鎖控制按鈕
+            document.getElementById('prevBtn').disabled = false;
+            document.getElementById('toggleBtn').disabled = false;
+            document.getElementById('nextBtn').disabled = false;
+
+            updateTrackUI(0);
+            renderPlaylist();
+            
+            // 將第一首歌送入隱藏的 YT 播放器準備
+            ytPlayer.cueVideoById(playlist[0].id);
+
+        } catch (e) {
+            console.error(e);
+            showToast("無法載入排行榜，請檢查網路連線");
+        }
+    }
+
+    function renderPlaylist() {
+      const container = document.getElementById('playlistContainer');
+      container.innerHTML = '';
+      playlist.forEach((track, i) => {
+        const li = document.createElement('li');
+        li.className = `playlist-item ${i === currentTrackIndex ? 'active' : ''}`;
+        li.onclick = () => { if (i !== currentTrackIndex) changeTrackAnimated(i); };
+        li.innerHTML = `
+          <img src="${track.cover}" alt="cover">
+          <div class="item-info">
+            <div class="item-title">${track.title}</div>
+            <div class="item-artist">${track.artist}</div>
+          </div>
+        `;
+        container.appendChild(li);
+      });
+      const active = container.querySelector('.active');
+      if (active) active.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function updateTrackUI(index) {
+      const track = playlist[index];
+      document.getElementById('trackTitle').textContent = track.title;
+      document.getElementById('trackArtist').textContent = track.artist;
+      document.getElementById('recordLabel').style.backgroundImage = `url('${track.cover}')`;
+      document.getElementById('progressBar').style.width = '0%';
+      document.getElementById('progressThumb').style.left = '0%';
+      document.getElementById('currentTime').textContent = '0:00';
+      document.getElementById('durationTime').textContent = '載入中...';
+    }
+
+    function togglePlayState() {
+      const playIcon = document.getElementById('playIcon');
+      const pauseIcon = document.getElementById('pauseIcon');
+      const tonearm = document.getElementById('tonearm');
+      const record = document.getElementById('record');
+
+      // 攔截：如果播放器還沒準備好，不執行
+      if (!isYtReady) return;
+
+      if (!isPlaying) {
+        isPlaying = true;
+        playIcon.style.display = 'none';
+        pauseIcon.style.display = 'block';
+        
+        ytPlayer.playVideo();
+        
+        tonearm.classList.add('playing');
+        playTimeout = setTimeout(() => record.classList.add('playing'), 300);
+      } else {
+        isPlaying = false;
+        playIcon.style.display = 'block';
+        pauseIcon.style.display = 'none';
+        
+        ytPlayer.pauseVideo();
+        
+        clearTimeout(playTimeout);
+        tonearm.classList.remove('playing');
+        record.classList.remove('playing');
+      }
+    }
+
+    function changeTrackAnimated(target = null) {
+        if (isAnimating || playlist.length === 0) return;
+        isAnimating = true;
+        
+        const wasPlaying = isPlaying;
+        if (isPlaying) togglePlayState(); // 先暫停現有歌曲並抬起唱臂
+
+        document.getElementById('trackInfoBox').classList.add('fading');
+        document.getElementById('recordWrapper').classList.add('slide-out');
+
+        setTimeout(() => {
+            currentTrackIndex = target !== null ? target : (currentTrackIndex + 1) % playlist.length;
+            
+            updateTrackUI(currentTrackIndex);
+            renderPlaylist();
+            
+            // 送入新歌 ID 到播放器，但不自動播放 (由後續 togglePlayState 接手)
+            ytPlayer.cueVideoById(playlist[currentTrackIndex].id);
+
+            document.getElementById('recordWrapper').classList.remove('slide-out');
+            document.getElementById('recordWrapper').classList.add('ready-to-slide-in');
+
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    document.getElementById('recordWrapper').classList.remove('ready-to-slide-in');
+                    document.getElementById('trackInfoBox').classList.remove('fading');
+                    
+                    setTimeout(() => {
+                        isAnimating = false;
+                        // 如果換歌前是播放狀態，或是使用者手動點擊清單，就自動放下唱臂播放
+                        if (wasPlaying || target !== null) {
+                            if (!isPlaying) togglePlayState();
+                        }
+                    }, 600);
+                });
+            });
+        }, 500);
+    }
+
+    // --- 進度條拖曳邏輯 ---
+    const progressContainer = document.getElementById('progressContainer');
+    
+    function updateProgressUI(clientX) {
+      if (!isYtReady || !ytPlayer.getDuration) return 0;
+      const duration = ytPlayer.getDuration();
+      if (!duration) return 0;
+      
+      const rect = progressContainer.getBoundingClientRect();
+      let percent = (clientX - rect.left) / rect.width;
+      percent = Math.max(0, Math.min(1, percent)); // 限制在 0~1 之間
+      
+      document.getElementById('progressBar').style.width = `${percent * 100}%`;
+      document.getElementById('progressThumb').style.left = `${percent * 100}%`;
+      document.getElementById('progressTooltip').textContent = formatTime(percent * duration);
+      document.getElementById('currentTime').textContent = formatTime(percent * duration);
+      
+      return percent * duration;
+    }
+
+    // 電腦滑鼠拖曳
+    progressContainer.addEventListener('mousedown', (e) => {
+        isDragging = true; 
+        progressContainer.classList.add('dragging'); 
+        updateProgressUI(e.clientX); 
+    });
+    window.addEventListener('mousemove', (e) => { 
+        if (isDragging) updateProgressUI(e.clientX); 
+    });
+    window.addEventListener('mouseup', (e) => { 
+        if (isDragging) { 
+            isDragging = false; 
+            progressContainer.classList.remove('dragging'); 
+            ytPlayer.seekTo(updateProgressUI(e.clientX), true); 
+        } 
+    });
+
+    // 手機觸控拖曳
+    progressContainer.addEventListener('touchstart', (e) => {
+        isDragging = true;
+        progressContainer.classList.add('dragging');
+        updateProgressUI(e.touches[0].clientX);
+    });
+    window.addEventListener('touchmove', (e) => {
+        if (isDragging) { 
+            e.preventDefault(); 
+            updateProgressUI(e.touches[0].clientX); 
+        }
+    }, { passive: false });
+    window.addEventListener('touchend', (e) => {
+        if (isDragging) {
+            isDragging = false;
+            progressContainer.classList.remove('dragging');
+            ytPlayer.seekTo(updateProgressUI(e.changedTouches[0].clientX), true);
+        }
+    });
+
+    // --- 時間更新循環 ---
+    function updateLoop() {
+        if (isPlaying && !isDragging && isYtReady && ytPlayer.getCurrentTime) {
+            const cur = ytPlayer.getCurrentTime();
+            const dur = ytPlayer.getDuration();
+            if (dur > 0) {
+                const p = (cur / dur) * 100;
+                document.getElementById('progressBar').style.width = `${p}%`;
+                document.getElementById('progressThumb').style.left = `${p}%`;
+                document.getElementById('currentTime').textContent = formatTime(cur);
+            }
+        }
+        requestAnimationFrame(updateLoop);
+    }
+    requestAnimationFrame(updateLoop);
+
+    // 綁定控制按鈕
+    document.getElementById('toggleBtn').addEventListener('click', togglePlayState);
+    document.getElementById('nextBtn').addEventListener('click', () => changeTrackAnimated());
+    document.getElementById('prevBtn').addEventListener('click', () => {
+        const i = (currentTrackIndex - 1 + playlist.length) % playlist.length;
+        changeTrackAnimated(i);
+    });
+
+  </script>
+</body>
+</html>
