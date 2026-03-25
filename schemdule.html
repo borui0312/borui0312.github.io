@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>行程提醒</title>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body { display: flex; justify-content: center; align-items: center; font-family: Arial, sans-serif; background: #f5f5f5; }
+    .container { width: 90%; max-width: 800px; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    h2 { text-align: center; }
+    #currentTask { font-size: 24px; text-align: center; padding: 15px; background: #e0ffe0; border-radius: 10px; margin-bottom: 20px; font-weight: bold; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: center; }
+    tr.highlight { background: #fff8c4; font-weight: bold; border-left: 5px solid #ffcc00; }
+    select { width: 100%; padding: 10px; font-size: 16px; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>每日行程提醒</h2>
+    <select id="daySelect">
+      <option value="mon">星期一</option>
+      <option value="tue">星期二</option>
+      <option value="wed">星期三</option>
+      <option value="thu">星期四</option>
+      <option value="fri">星期五</option>
+      <option value="sat">星期六</option>
+      <option value="sun">星期日</option>
+    </select>
+    <div id="currentTask">讀取中...</div>
+    <table id="scheduleTable">
+      <tr><th>開始</th><th>結束</th><th>項目</th></tr>
+    </table>
+  </div>
+
+  <script>
+    const dayMap = {1:'mon',2:'tue',3:'wed',4:'thu',5:'fri',6:'sat',0:'sun'};
+
+    const schedules = {
+      mon: [
+        { start: "08:00", end: "10:00", task: "體育課" },
+        { start: "10:10", end: "12:00", task: "讀書(學校)" },
+        { start: "12:00", end: "13:20", task: "休息 or 午餐" },
+        { start: "13:30", end: "15:20", task: "英文" },
+        { start: "15:30", end: "17:00", task: "寫作業" },
+        { start: "17:20", end: "18:50", task: "補習班打工" },
+        { start: "19:10", end: "20:00", task: "休息 or 晚餐" },
+        { start: "20:00", end: "22:00", task: "通用" },
+        { start: "22:00", end: "22:40", task: "跑步" },
+        { start: "22:40", end: "23:00", task: "休息 or 洗澡" },
+        { start: "23:00", end: "24:00", task: "課外讀物" }
+      ],
+      tue: [
+        { start: "08:00", end: "10:00", task: "國文" },
+        { start: "10:10", end: "12:00", task: "讀書(學校)" },
+        { start: "12:00", end: "13:20", task: "休息 or 午餐" },
+        { start: "13:30", end: "16:20", task: "通訊導論" },
+        { start: "16:30", end: "18:00", task: "寫作業" },
+        { start: "18:00", end: "19:00", task: "休息 or 晚餐" },
+        { start: "19:00", end: "22:00", task: "通用" },
+        { start: "22:00", end: "22:40", task: "跑步" },
+        { start: "22:40", end: "23:00", task: "休息 or 洗澡" },
+        { start: "23:00", end: "24:00", task: "課外讀物" }
+      ],
+      wed: [
+        { start: "08:40", end: "08:50", task: "睡覺 or 早餐" },
+        { start: "09:00", end: "12:00", task: "微積分" },
+        { start: "12:10", end: "13:20", task: "休息 or 午餐" },
+        { start: "13:20", end: "15:20", task: "寫作業" },
+        { start: "15:30", end: "16:20", task: "程式設計" },
+        { start: "18:30", end: "19:00", task: "休息 or 晚餐" },
+        { start: "19:00", end: "19:30", task: "做家事" },
+        { start: "19:30", end: "22:40", task: "通用" },
+        { start: "22:40", end: "23:00", task: "休息 or 洗澡" },
+        { start: "23:00", end: "24:00", task: "課外讀物" }
+      ],
+      thu: [
+        { start: "08:40", end: "08:50", task: "睡覺 or 早餐" },
+        { start: "09:00", end: "12:00", task: "網際網路設計" },
+        { start: "12:10", end: "13:20", task: "休息 or 午餐" },
+        { start: "13:30", end: "16:20", task: "電工實習" },
+        { start: "16:30", end: "18:00", task: "補習班打工" },
+        { start: "18:20", end: "19:00", task: "休息 or 晚餐" },
+        { start: "19:00", end: "22:00", task: "通用" },
+        { start: "22:00", end: "22:40", task: "跑步" },
+        { start: "22:40", end: "23:00", task: "休息 or 洗澡" },
+        { start: "23:00", end: "24:00", task: "課外讀物" }
+      ],
+      fri: [
+        { start: "08:40", end: "08:50", task: "睡覺 or 早餐" },
+        { start: "09:00", end: "12:00", task: "物理" },
+        { start: "12:10", end: "13:00", task: "休息 or 午餐" },
+        { start: "13:30", end: "15:20", task: "AI機器人" },
+        { start: "15:30", end: "16:20", task: "課外讀物" },
+        { start: "16:30", end: "18:00", task: "補習班打工" },
+        { start: "18:20", end: "19:00", task: "休息 or 晚餐" },
+        { start: "19:00", end: "22:40", task: "通用" },
+        { start: "22:40", end: "23:00", task: "休息 or 洗澡" },
+        { start: "23:00", end: "24:00", task: "課外讀物" }
+      ],
+      sat: [
+        { start: "08:00", end: "09:00", task: "睡覺 or 早餐" },
+        { start: "09:00", end: "12:00", task: "讀書(學校)" },
+        { start: "12:00", end: "13:20", task: "休息 or 午餐" },
+        { start: "13:20", end: "15:00", task: "寫作業" },
+        { start: "15:00", end: "15:30", task: "做家事" },
+        { start: "15:30", end: "16:00", task: "休息" },
+        { start: "16:00", end: "18:00", task: "通用" },
+        { start: "18:00", end: "19:00", task: "休息 or 晚餐" },
+        { start: "19:00", end: "22:00", task: "通用" },
+        { start: "22:00", end: "22:40", task: "跑步" },
+        { start: "22:40", end: "23:00", task: "休息 or 洗澡" },
+        { start: "23:00", end: "24:00", task: "課外讀物" }
+      ],
+      sun: [
+        { start: "08:00", end: "09:00", task: "睡覺 or 早餐" },
+        { start: "09:00", end: "12:00", task: "自我學習" },
+        { start: "12:00", end: "13:20", task: "休息 or 午餐" },
+        { start: "13:20", end: "15:00", task: "通用" },
+        { start: "15:00", end: "16:00", task: "休息" },
+        { start: "16:00", end: "18:00", task: "自我學習" },
+        { start: "18:00", end: "19:00", task: "休息 or 晚餐" },
+        { start: "19:00", end: "22:00", task: "通用" },
+        { start: "22:00", end: "22:40", task: "跑步" },
+        { start: "22:40", end: "23:00", task: "休息 or 洗澡" },
+        { start: "23:00", end: "24:00", task: "課外讀物" }
+      ]
+    };
+
+    const table = document.getElementById("scheduleTable");
+    const daySelect = document.getElementById("daySelect");
+
+    function timeToMinutes(t) { const [h, m] = t.split(":").map(Number); return h * 60 + (isNaN(m) ? 0 : m); }
+
+    function loadSchedule() {
+      const schedule = schedules[daySelect.value] || [];
+      table.innerHTML = '<tr><th>開始</th><th>結束</th><th>項目</th></tr>';
+      schedule.forEach((s, i) => { const row = document.createElement("tr"); row.id = "row" + i; row.innerHTML = `<td>${s.start}</td><td>${s.end}</td><td>${s.task}</td>`; table.appendChild(row); });
+      updateTask();
+    }
+
+    function updateTask() {
+      const now = new Date();
+      const minutes = now.getHours() * 60 + now.getMinutes();
+      const schedule = schedules[daySelect.value] || [];
+      const weekday = new Date().getDay();
+      const todayKey = dayMap[weekday];
+      let current = '目前沒有行程（自由時間）';
+      let activeIndex = -1;
+      schedule.forEach((s, i) => { const row = document.getElementById('row' + i); if (row) row.classList.remove('highlight'); });
+      if (daySelect.value !== todayKey) { document.getElementById('currentTask').innerText = '非今日行程'; return; }
+      schedule.forEach((s, i) => { const start = timeToMinutes(s.start), end = timeToMinutes(s.end); if (minutes >= start && minutes < end) { current = s.task; activeIndex = i; } });
+      if (activeIndex !== -1) { const row = document.getElementById('row' + activeIndex); if (row) row.classList.add('highlight'); }
+      document.getElementById('currentTask').innerText = current;
+    }
+
+    (function setDefaultDay() { const weekday = new Date().getDay(); daySelect.value = dayMap[weekday] || 'mon'; })();
+    daySelect.addEventListener('change', loadSchedule);
+    loadSchedule();
+    setInterval(updateTask, 60000);
+  </script>
+</body>
+</html>
