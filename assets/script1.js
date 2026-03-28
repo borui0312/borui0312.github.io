@@ -1,8 +1,4 @@
-
-// ==========================================
-// 1. 資料區 (Data Definitions)
-// ==========================================
-
+/* 資料區 */
 const CONTEST_DATA = [
     {
         id: 1,
@@ -20,141 +16,64 @@ const CONTEST_DATA = [
     },
     {
         id: 2,
-        title: "校園黑客松 Hackathon",
-        award: "最佳創意獎",
-        date: "2023-10",
-        image: "https://images.unsplash.com/photo-1504384308090-c54be3852f9d?auto=format&fit=crop&q=80&w=800",
-        description: "要在 24 小時內做出一個完整的 App 原型真的很有挑戰性！我們做了一個解決校園剩食問題的 App。",
-        tags: ["App開發", "React Native", "急中生智"]
-    },
-    {
-        id: 3,
-        title: "國際網頁設計大賽",
-        award: "優勝",
-        date: "2023-08",
-        image: "https://images.unsplash.com/photo-1581291518633-83b4ebd1d83e?auto=format&fit=crop&q=80&w=800",
-        description: "運用了最新的 CSS Grid 與視差滾動效果。第一次嘗試將 3D 模型嵌入網頁中，雖然效能調校花了很多時間，但最終效果非常驚艷。",
-        tags: ["Web Design", "Three.js", "UI/UX"]
-    },
-    {
-        id: 4,
-        title: "大專盃程式設計",
-        award: "銀牌",
-        date: "2023-05",
-        image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&q=80&w=800",
-        description: "這是一場純演算法的競賽。在動態規劃（DP）的題目上卡關了很久，但也因此發現自己對圖論演算法比較熟悉。",
-        tags: ["C++", "Algorithm", "邏輯思考"]
-    },
-    {
-        id: 5,
-        title: "AI 生成藝術展",
-        award: "入圍",
-        date: "2023-03",
-        image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=800",
-        description: "嘗試使用 Stable Diffusion 訓練自己的 LoRA 模型，生成具有台灣傳統風格的賽博龐克圖像。",
-        tags: ["AI Art", "Stable Diffusion", "設計"]
-    },
-    {
-        id: 6,
-        title: "開源軟體貢獻獎",
-        award: "年度貢獻者",
-        date: "2022-12",
-        image: "https://images.unsplash.com/photo-1556075798-4825dfaaf498?auto=format&fit=crop&q=80&w=800",
-        description: "持續為知名開源專案修復 Bug 並撰寫文件。雖然不是傳統的比賽，但獲得社群認可是最大的獎勵。",
-        tags: ["Open Source", "GitHub", "社群"]
+        title: "施工中",
+        award: "無",
+        date: "0000-00",
+        image: "assets/image/icon/constructing.png",
+        description: "",
+        tags: [""],
+        customImgStyle: "object-fit: contain; padding: 1rem; background: #222;"
     }
 ];
 
 const PROJECT_DATA = [
     {
         id: 101,
-        title: "股票網站網站",
-        award: "Side Project",
-        date: "2024-01",
+        title: "股票損益日程表",
+        date: "2025-06",
         image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=800",
-        description: "能用你就偷笑吧，<a href='invest_calendar.html' target='_blank' style='color: #60a5fa; text-decoration: underline;'>點此瀏覽</a>",
-        tags: ["HTML", "CSS", "RWD"]
+        description: "<a href='invest_calendar.html' target='_blank' style='color: #60a5fa; text-decoration: underline;'>點此瀏覽</a>",
+        tags: ["長期持有","股票"]
     },
     {
         id: 102,
-        title: "Discord 音樂機器人",
-        award: "開源專案",
-        date: "2023-11",
-        image: "https://images.unsplash.com/photo-1614680376593-902f74cf0d41?auto=format&fit=crop&q=80&w=800",
-        description: "使用 Discord.js 開發的音樂機器人，支援 YouTube 和 Spotify 連結播放。目前已在超過 50 個伺服器中使用。",
-        tags: ["Node.js", "Discord API", "Backend"]
+        title: "黑膠唱片機",
+        date: "2025-12",
+        image: "assets/image/icon/black.jpg",
+        description: "<a href='black7.html' target='_blank' style='color: #60a5fa; text-decoration: underline;'>點此瀏覽</a>",
+        tags: ["可背景撥放"]
     },
     {
         id: 103,
-        title: "記帳小幫手 App",
-        award: "實用工具",
-        date: "2023-09",
-        image: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=800",
-        description: "一個簡單直覺的記帳軟體，結合了圖表分析功能，讓使用者能一目了然每月的消費狀況。",
-        tags: ["Flutter", "Dart", "Firebase"]
+        title: "個人日程表",
+        date: "2025-08",
+        image: "assets/image/icon/schemdule.png",
+        description: "<a href='schemdule.html' target='_blank' style='color: #60a5fa; text-decoration: underline;'>點此瀏覽</a>",
+        tags: ["規律"]
     },
     {
         id: 104,
-        title: "校園二手書平台",
-        award: "期末專題",
-        date: "2023-06",
-        image: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&q=80&w=800",
-        description: "為了解決學長姐教科書浪費的問題，搭建了一個校內專用的二手書媒合平台。",
-        tags: ["Vue.js", "MySQL", "PHP"]
-    },
-    {
-        id: 105,
-        title: "不知道",
-        award: "佈佈佈",
-        date: "2023-04",
-        image: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&q=80&w=800",
-        description: "為了解決你。",
-        tags: ["Vue.js", "MySQL", "PHP"]
+        title: "合併 pdf",
+        date: "2026-01",
+        image: "assets/image/icon/pdf_mix.jpg",
+        description: "<a href='https://github.com/borui0312/borui0312.github.io/blob/main/project/mix_pdf.rar' target='_blank' style='color: #60a5fa; text-decoration: underline;'>點此瀏覽</a>",
+        tags: ["Python"],
+        customImgStyle: "object-fit: contain; padding: 1rem; background: #222;"
     }
 ];
 
 const WORKSHOP_DATA = [
     {
         id: 201,
-        title: "AWS 雲端從業人員培訓",
-        award: "研習證書",
-        date: "2023-08",
-        image: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&q=80&w=800",
-        description: "參加為期三天的 AWS 雲端服務密集培訓，學習了 EC2、S3、Lambda 等核心服務的基礎應用。",
-        tags: ["AWS", "Cloud", "DevOps"]
-    },
-    {
-        id: 202,
-        title: "資訊安全攻防營",
-        award: "結業",
-        date: "2023-07",
-        image: "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?auto=format&fit=crop&q=80&w=800",
-        description: "學習基礎的滲透測試與漏洞防護，了解常見的 SQL Injection 與 XSS 攻擊原理及防禦方式。",
-        tags: ["Security", "CTF", "Ethical Hacking"]
-    },
-    {
-        id: 203,
-        title: "Google 開發者大會",
-        award: "參訪",
-        date: "2023-06",
-        image: "https://images.unsplash.com/photo-1591115765373-5207764f72e7?auto=format&fit=crop&q=80&w=800",
-        description: "參與 Google I/O Extended 台北場，聆聽最新的 Web 技術趨勢與 Android 開發新功能。",
-        tags: ["Conference", "Tech", "Community"]
-    },
-    {
-        id: 204,
-        title: "APCS 檢定衝刺班",
-        award: "助教",
-        date: "2023-02",
-        image: "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&q=80&w=800",
-        description: "擔任高中生 APCS 程式設計檢定的解題助教，協助學員理解 C++ 語法與基礎演算法。",
-        tags: ["Teaching", "C++", "APCS"]
+        title: "施工中",
+        award: "無",
+        date: "0000-00",
+        image: "assets/image/icon/constructing.png",
+        description: "",
+        tags: [""],
+        customImgStyle: "object-fit: contain; padding: 1rem; background: #222;"
     }
 ];
-
-// ==========================================
-// 2. 狀態與變數 (State & Variables)
-// ==========================================
 
 const carouselState = {
     contest: 0,
@@ -168,10 +87,6 @@ let modalImages = [];
 let modalImageIndex = 0;
 
 const modalOverlay = document.getElementById('modalOverlay');
-
-// ==========================================
-// 3. 初始化 (Initialization)
-// ==========================================
 
 function init() {
     renderAllSections();
@@ -188,10 +103,6 @@ function init() {
     }, 100);
 }
 
-// ==========================================
-// 4. 渲染邏輯 (Rendering)
-// ==========================================
-
 function createCardHTML(item, isSlide = false) {
     const wrapperClass = isSlide ? "carousel-item" : "";
     const coverImage = item.images && item.images.length > 0 ? item.images[0] : item.image;
@@ -201,15 +112,22 @@ function createCardHTML(item, isSlide = false) {
     let cleanDesc = item.description.replace(/<[^>]*>?/gm, '');
     let displayDesc = cleanDesc.length > 100 ? cleanDesc.substring(0, 100) + '...' : cleanDesc;
 
+    // ✨ 判斷是否有 award，有才顯示右上角標籤
+    const awardHTML = item.award ? `
+        <div class="card-badge">
+            <i data-lucide="award"></i>
+            ${item.award}
+        </div>` : '';
+
+    // ✨ 判斷是否有 date，有才顯示日期
+    const dateHTML = item.date ? `<div class="card-meta">${item.date}</div>` : '';
+
     const cardContent = `
         <div class="card slide-up" style="${animationStyle}" onclick="openModal(${item.id})">
             <div class="card-img-wrapper">
-                <img src="${coverImage}" alt="${item.title}" class="card-img">
+                <img src="${coverImage}" alt="${item.title}" class="card-img" ${item.customImgStyle ? `style="${item.customImgStyle}"` : ''}>
                 
-                <div class="card-badge">
-                    <i data-lucide="award"></i>
-                    ${item.award}
-                </div>
+                ${awardHTML}
                 
                 ${item.images && item.images.length > 1 ? `
                 <div style="position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.6); padding:2px 6px; border-radius:4px; font-size:10px; color:#ccc; display:flex; align-items:center; gap:4px; border:1px solid rgba(255,255,255,0.1);">
@@ -220,7 +138,7 @@ function createCardHTML(item, isSlide = false) {
             </div>
 
             <div class="card-content">
-                <div class="card-meta">${item.date}</div>
+                ${dateHTML}
                 <h3 class="card-title">${item.title}</h3>
                 <p class="card-desc">${displayDesc}</p>
                 
@@ -249,10 +167,6 @@ function renderAllSections() {
         if (grid) grid.innerHTML = sec.data.map(item => createCardHTML(item, false)).join('');
     });
 }
-
-// ==========================================
-// 5. 輪播控制邏輯 (Carousel Logic)
-// ==========================================
 
 function updateCarousel(type, data, trackId, prevBtnId, nextBtnId) {
     let itemsPerScreen = window.innerWidth < 640 ? 2 : 4;
@@ -317,9 +231,7 @@ window.addEventListener('resize', () => {
     });
 });
 
-// ==========================================
-// ✨ 顯示全部 / 切換回輪播 的邏輯 (包含自動平滑捲動與移除空白)
-// ==========================================
+/* 顯示全部 */
 function setupToggleButtons() {
     const toggleBtns = document.querySelectorAll('.toggle-btn');
     
@@ -430,10 +342,7 @@ function setupToggleButtons() {
     });
 }
 
-// ==========================================
-// 6. Modal 彈窗邏輯 (Modal Logic)
-// ==========================================
-
+/* 彈窗 */
 function openModal(id) {
     const ALL_DATA = [...CONTEST_DATA, ...PROJECT_DATA, ...WORKSHOP_DATA];
     const item = ALL_DATA.find(d => d.id === id);
@@ -441,8 +350,25 @@ function openModal(id) {
     if (!item) return;
 
     document.getElementById('modalTitle').textContent = item.title;
-    document.getElementById('modalAward').querySelector('span').textContent = item.award;
-    document.getElementById('modalDate').textContent = item.date;
+    
+    // ✨ 動態隱藏或顯示 Modal 內的 Award
+    const modalAward = document.getElementById('modalAward');
+    if (item.award) {
+        modalAward.style.display = 'inline-flex';
+        modalAward.querySelector('span').textContent = item.award;
+    } else {
+        modalAward.style.display = 'none';
+    }
+
+    // ✨ 動態隱藏或顯示 Modal 內的 Date (包含它外層的 icon)
+    const modalDate = document.getElementById('modalDate');
+    if (item.date) {
+        modalDate.parentElement.style.display = 'flex';
+        modalDate.textContent = item.date;
+    } else {
+        modalDate.parentElement.style.display = 'none';
+    }
+
     document.getElementById('modalDescription').innerHTML = item.description;
 
     const tagsContainer = document.getElementById('modalTags');
@@ -511,9 +437,6 @@ function renderModalDots() {
     `).join('');
 }
 
-// ==========================================
-// 7. 打字機特效 (Typewriter)
-// ==========================================
 
 const textElement = document.getElementById('typing-text');
 const texts = ['Software Dev', 'AI Technology', 'Cyber Security', 'Stock Analysis'];
