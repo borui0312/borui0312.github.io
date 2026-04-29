@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>庫存股損益管理系統</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <link rel="stylesheet" href="profitandloss.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="theme-toggle-wrapper">
+            <button id="theme-toggle" class="theme-btn" onclick="toggleTheme()">
+                🌙 黑夜模式
+            </button>
+        </div>
+
+        
+        <h2> <img src="image/stock.png" class="title-icon"> 庫存股損益管理系統 </h2>
+        
+
+        <div class="dashboard-row">
+            <div class="dash-card">
+                <h4>總投入成本</h4>
+                <div id="dash-cost" class="val neutral">$0</div>
+            </div>
+            <div class="dash-card">
+                <h4>未實現損益</h4>
+                <div id="dash-unrealized" class="val neutral">計算中...</div>
+            </div>
+            <div class="dash-card">
+                <h4>已實現損益</h4>
+                <div id="dash-realized" class="val neutral">$0</div>
+            </div>
+            <div class="dash-card">
+                <h4>累積領息</h4>
+                <div id="dash-dividend" class="val interest">$0</div>
+            </div>
+            <div class="dash-card dash-income">
+                <h4>🏆 總實際入袋</h4>
+                <div id="dash-total-income" class="val neutral">$0</div>
+            </div>
+        </div>
+
+ 
+        <div class="input-area">
+            <div class="form-group">
+                <label>股票代號</label>
+                <input type="text" id="inp_code" placeholder="輸入代號">
+            </div>
+            <div class="form-group">
+                <label>買進日期</label>
+                <input type="date" id="inp_date">
+            </div>
+            <div class="form-group">
+                <label>買進價格</label>
+                <input type="number" id="inp_price" step="0.01" placeholder="輸入價格">
+            </div>
+            <div class="form-group">
+                <label>買進股數</label>
+                <input type="number" id="inp_amount" placeholder="輸入股數">
+            </div>
+            <div class="btn-group-input">
+                <button class="btn-save" onclick="addStock()">＋ 買進紀錄</button>
+                <button class="btn-save btn-div" onclick="openDivModal()">＋ 記錄股息</button>
+            </div>
+        </div>
+
+
+        <div class="note">
+            * 使用國泰電子下單 (2.8折，低收1元) 手續費試算，賣出時自動判斷 ETF (0.1%) 或 個股 (0.3%) 證交稅。
+        </div>
+
+
+        <table id="inventory-list">
+            <thead>
+                <tr>
+                    <th width="4%"></th>
+                    <th width="5%"></th>
+                    <th width="10%">代號</th>
+                    <th width="10%">持股總數</th>
+                    <th width="11%">平均成本</th>
+                    <th width="11%">總成本</th>
+                    <th width="12%">最新現價</th>
+                    <th width="11%">累積股息</th>
+                    <th width="13%">未實現損益</th>
+                    <th width="13%">已實現損益</th>
+                </tr>
+            </thead>
+            </table>
+    </div>
+
+
+
+    <div id="sellModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>執行賣出</h3>
+            <div id="sell-modal-info" class="modal-info">載入中...</div>
+            <div class="form-group">
+                <label>賣出日期</label>
+                <input type="date" id="sell_date">
+            </div>
+            <div class="form-group">
+                <label>賣出價格</label>
+                <input type="number" id="sell_price" step="0.01">
+            </div>
+            <div class="form-group">
+                <label>賣出股數</label>
+                <input type="number" id="sell_amount" placeholder="賣出股數">
+                <input type="hidden" id="sell_target_id">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeSellModal()">取消</button>
+                <button class="btn-confirm" onclick="confirmSell()">確認賣出</button>
+            </div>
+        </div>
+    </div>
+
+
+
+    <div id="divModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>💵 記錄股息 / 利息</h3>
+            <div class="form-group">
+                <label>股票代碼</label>
+                <input type="text" id="div_code" placeholder="如: 0050">
+            </div>
+            <div class="form-group" style="margin-top: 15px;">
+                <label>入帳日期</label>
+                <input type="date" id="div_date">
+            </div>
+            <div class="form-group" style="margin-top: 15px;">
+                <label>實收股息 (淨額)</label>
+                <input type="number" id="div_amount" placeholder="如: 5000">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeDivModal()">取消</button>
+                <button class="btn-confirm btn-confirm-div" onclick="confirmDiv()">確認新增</button>
+            </div>
+        </div>
+    </div>
+
+
+
+    <div id="editModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 id="edit-modal-title">編輯紀錄</h3>
+            <input type="hidden" id="edit_id">
+            <input type="hidden" id="edit_type">
+            <input type="hidden" id="edit_code">
+
+            <div id="edit_fields" class="edit-fields-wrapper"></div>
+
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeEditModal()">取消</button>
+                <button class="btn-confirm btn-confirm-edit" onclick="confirmEdit()">儲存修改</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="test1.js"></script>
+</body>
+</html>
