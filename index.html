@@ -2,263 +2,1445 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <!-- 切換頁面 淡入淡出 -->
-    <meta name="view-transition" content="same-origin" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>郭柏銳 | NKUST CCE</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EcoSwap 綠換衣 - 最終完整版</title>
     
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" type='text/css' href="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/devicon.min.css" />
-    
-    <!-- 引入 CSS -->
-    <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        :root {
+            --primary: #10b981; 
+            --bg: #f3f4f6;
+            --surface: #ffffff;
+            --text: #1f2937;
+            --gray: #9ca3af;
+            --safe: #ef4444; 
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); overflow-x: hidden; }
+        
+        #app { max-width: 480px; margin: 0 auto; background: var(--surface); height: 100vh; position: relative; display: flex; flex-direction: column; box-shadow: 0 0 20px rgba(0,0,0,0.1); overflow: hidden; }
+        
+        header { background: var(--primary); color: white; padding: 16px; text-align: center; font-size: 1.2rem; font-weight: bold; z-index: 10; position: relative; }
+        
+        .view { flex: 1; overflow-y: auto; display: none; padding: 16px; padding-bottom: 80px; }
+        .view.active { display: block; }
+        
+        /* 地圖相關樣式 */
+        #view-home { padding: 0; position: relative; display: none; }
+        #view-home.active { display: block; }
+        #map { width: 100%; height: 100%; z-index: 1; }
+        .privacy-notice { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(255, 255, 255, 0.95); padding: 8px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; color: var(--safe); box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 1000; display: flex; align-items: center; gap: 6px; border: 1px solid #fca5a5; white-space: nowrap; }
+        .user-marker { background-color: #3b82f6; color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 18px; box-shadow: 0 4px 10px rgba(0,0,0,0.4); border: 2px solid white; }
+        .clothes-marker-privacy { background-color: var(--safe); color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 14px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); border: 2px solid white; opacity: 0.9; }
+        .leaflet-popup-content-wrapper { border-radius: 12px; }
+        .map-popup { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+        .map-popup img { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; }
+        .map-popup h4 { margin: 0; font-size: 1rem; color: var(--text); }
+        .map-popup p { margin: 0; font-size: 0.8rem; color: var(--gray); }
+        .map-popup button { margin-top: 4px; padding: 6px 12px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8rem; }
+        .privacy-tag { font-size: 0.7rem; color: var(--safe); background: #fee2e2; padding: 2px 6px; border-radius: 10px; }
+
+        /* Tinder 刷卡與列表卡片 */
+        .item-card { display: flex; gap: 12px; padding: 12px; background: white; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #e5e7eb; cursor: pointer; transition: background 0.2s; position: relative; }
+        .item-card:active { background: #f9fafb; }
+        .item-card img { width: 80px; height: 80px; border-radius: 8px; object-fit: cover; }
+        .item-info { flex: 1; display: flex; flex-direction: column; }
+        .item-info h3 { margin-bottom: 4px; font-size: 1.1rem; }
+        .item-info p { font-size: 0.9rem; color: var(--gray); margin-bottom: 2px; }
+        .points-badge { display: inline-block; background: #ecfdf5; color: var(--primary); padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; margin-top: 4px; border: 1px solid #d1fae5; }
+        .status-tag { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; margin-top: 6px; align-self: flex-start; }
+
+        .swipe-container { position: relative; width: 100%; height: 68vh; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+        .tinder-card { position: absolute; width: 92%; height: 95%; background: white; border-radius: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.13); transition: transform 0.3s ease, opacity 0.3s ease; display: flex; flex-direction: column; overflow: hidden; }
+        .tinder-card img { width: 100%; height: 68%; object-fit: cover; }
+        .tinder-card .card-gradient { position: absolute; top: 0; left: 0; width: 100%; height: 68%; background: linear-gradient(to bottom, rgba(0,0,0,0) 50%, rgba(0,0,0,0.55) 100%); pointer-events: none; }
+        .tinder-card .card-top-badges { position: absolute; top: 14px; left: 14px; right: 14px; display: flex; justify-content: space-between; align-items: flex-start; }
+        .card-queue-badge { background: rgba(0,0,0,0.45); color: white; font-size: 0.72rem; padding: 4px 10px; border-radius: 99px; backdrop-filter: blur(4px); }
+        .card-condition-badge { background: rgba(255,255,255,0.92); color: #374151; font-size: 0.72rem; padding: 4px 10px; border-radius: 99px; font-weight: bold; }
+        .tinder-card .card-img-footer { position: absolute; bottom: calc(32% + 0px); left: 0; width: 100%; padding: 10px 16px; display: flex; align-items: flex-end; justify-content: space-between; }
+        .tinder-info { padding: 14px 16px 10px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+        .tinder-info h2 { font-size: 1.35rem; margin: 0 0 6px; color: var(--text); }
+        .tinder-meta-row { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 8px; }
+        .tinder-meta-tag { display: inline-flex; align-items: center; gap: 4px; padding: 4px 9px; border-radius: 10px; font-size: 0.76rem; }
+        .tinder-carbon-bar { background: #f0fdf4; border-radius: 12px; padding: 9px 12px; display: flex; align-items: center; justify-content: space-between; border: 1px solid #bbf7d0; }
+        .tinder-controls { display: flex; justify-content: center; align-items: center; gap: 28px; padding: 14px 0 10px; }
+        .btn-swipe { width: 62px; height: 62px; border-radius: 50%; border: none; font-size: 22px; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.12); background: white; display: flex; justify-content: center; align-items: center; transition: transform 0.1s; }
+        .btn-swipe:active { transform: scale(0.92); }
+        .btn-nope { color: #ef4444; box-shadow: 0 4px 16px rgba(239,68,68,0.18); }
+        .btn-like { color: var(--primary); box-shadow: 0 4px 16px rgba(16,185,129,0.22); width: 72px; height: 72px; font-size: 26px; }
+        .btn-skip { color: #f59e0b; font-size: 18px; width: 50px; height: 50px; }
+        .swipe-hint { text-align: center; font-size: 0.75rem; color: #9ca3af; padding-bottom: 2px; }
+
+        /* --- 我的錢包與上架專屬樣式 --- */
+        .profile-card { background: linear-gradient(135deg, var(--primary), #059669); color: white; border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); cursor: pointer; transition: transform 0.1s; position: relative; overflow: hidden; }
+        .profile-card:active { transform: scale(0.98); }
+        /* 卡片上的點擊圖示 */
+        .profile-card::after { content: '\f054'; font-family: 'Font Awesome 6 Free'; font-weight: 900; position: absolute; right: 20px; top: 50%; transform: translateY(-50%); font-size: 1.5rem; opacity: 0.5; }
+        
+        .user-info { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+        .user-info img { width: 50px; height: 50px; border-radius: 50%; border: 2px solid white; }
+        .wallet-balance p { margin: 0; font-size: 0.9rem; opacity: 0.9; }
+        .wallet-balance .points { font-size: 2.5rem; font-weight: bold; margin-top: 4px; }
+        
+        .btn-upload-large { width: 100%; background: #1f2937; color: white; border: none; border-radius: 16px; padding: 16px; display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 1.1rem; cursor: pointer; margin-bottom: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: left; transition: transform 0.1s; }
+        .btn-upload-large:active { transform: scale(0.98); }
+        .btn-upload-large i { font-size: 1.8rem; color: var(--primary); }
+
+        /* --- 商城彈出視窗 (Bottom Sheet) --- */
+        #store-modal { position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 200; display: flex; flex-direction: column; justify-content: flex-end; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+        #store-modal.open { opacity: 1; pointer-events: auto; }
+        .store-content { background: var(--bg); width: 100%; height: 80vh; border-radius: 20px 20px 0 0; display: flex; flex-direction: column; transform: translateY(100%); transition: transform 0.3s ease; box-shadow: 0 -5px 15px rgba(0,0,0,0.1); }
+        #store-modal.open .store-content { transform: translateY(0); }
+        
+        .store-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #e5e7eb; background: white; border-radius: 20px 20px 0 0; }
+        .store-header h3 { margin: 0; font-size: 1.2rem; color: var(--text); }
+        .store-header button { background: none; border: none; font-size: 1.5rem; color: var(--gray); cursor: pointer; }
+        .store-body { padding: 16px; overflow-y: auto; flex: 1; padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+
+        .reward-list { display: flex; flex-direction: column; gap: 12px; }
+        .reward-item { display: flex; gap: 12px; background: white; padding: 12px; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .reward-item img { width: 70px; height: 70px; border-radius: 8px; object-fit: cover; }
+        .reward-info { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+        .reward-info h4 { margin: 0; font-size: 1rem; color: var(--text); }
+        .reward-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+        .reward-bottom .cost { color: var(--primary); font-weight: bold; font-size: 0.9rem; }
+        .reward-bottom button { background: var(--primary); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; cursor: pointer; font-weight: bold;}
+        .reward-bottom button:active { background: #059669; }
+
+        /* 底部導覽列與聊天室 */
+        nav { position: absolute; bottom: 0; width: 100%; background: white; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-around; padding: 12px 0; padding-bottom: max(12px, env(safe-area-inset-bottom)); z-index: 10; transition: transform 0.3s ease; }
+        nav button { background: none; border: none; display: flex; flex-direction: column; align-items: center; font-size: 0.8rem; color: var(--gray); cursor: pointer; }
+        nav button.active { color: var(--primary); font-weight: bold; }
+        nav button i { font-size: 1.4rem; margin-bottom: 4px; }
+
+        #chat-room { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); z-index: 100; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s ease; }
+        #chat-room.open { transform: translateX(0); }
+        .chat-header { background: var(--primary); color: white; padding: 16px; display: flex; align-items: center; gap: 16px; font-size: 1.2rem; font-weight: bold; padding-top: max(16px, env(safe-area-inset-top)); }
+        .chat-header button { background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; }
+        .chat-banner { background: #ffffff; padding: 12px 16px; display: flex; gap: 12px; align-items: center; border-bottom: 1px solid #e5e7eb; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .chat-banner img { width: 50px; height: 50px; border-radius: 8px; object-fit: cover; }
+        .chat-banner-info { flex: 1; }
+        .chat-banner-info p { margin: 0; font-size: 0.85rem; color: var(--text); }
+        .chat-banner-info .location { color: #6b7280; font-size: 0.8rem; margin-top: 4px; }
+        .chat-messages { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+        .msg { max-width: 75%; padding: 10px 14px; border-radius: 16px; position: relative; line-height: 1.4; word-wrap: break-word; }
+        .msg p { margin: 0; font-size: 0.95rem; }
+        .msg .time { font-size: 0.7rem; display: block; text-align: right; margin-top: 4px; }
+        .msg.received { background: white; color: var(--text); align-self: flex-start; border-bottom-left-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .msg.received .time { color: var(--gray); }
+        .msg.sent { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .msg.sent .time { color: #d1fae5; }
+        .chat-input-area { background: white; padding: 12px 16px; padding-bottom: max(12px, env(safe-area-inset-bottom)); border-top: 1px solid #e5e7eb; display: flex; gap: 10px; align-items: center; }
+        .chat-input-area input { flex: 1; padding: 12px 16px; border: 1px solid #e5e7eb; border-radius: 24px; outline: none; font-size: 0.95rem; background: var(--bg); }
+        .chat-input-area button { width: 40px; height: 40px; background: var(--primary); color: white; border: none; border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center; font-size: 1rem; box-shadow: 0 2px 5px rgba(16, 185, 129, 0.3); }
+
+        /* ===== 限量預購頁面專屬樣式 ===== */
+        .preorder-banner { background: linear-gradient(135deg, #7c3aed, #4f46e5); color: white; border-radius: 16px; padding: 16px 20px; margin-bottom: 16px; display: flex; align-items: center; gap: 14px; }
+        .preorder-banner-icon { font-size: 2.2rem; }
+        .preorder-banner h2 { margin: 0 0 4px; font-size: 1.1rem; }
+        .preorder-banner p { margin: 0; font-size: 0.8rem; opacity: 0.85; }
+
+        .preorder-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+        .preorder-tab { flex: 1; padding: 8px; border: 1px solid #e5e7eb; border-radius: 10px; background: white; font-size: 0.82rem; color: var(--gray); cursor: pointer; text-align: center; transition: all 0.2s; }
+        .preorder-tab.active { background: #ede9fe; color: #7c3aed; border-color: #c4b5fd; font-weight: bold; }
+
+        .preorder-card { background: white; border-radius: 16px; border: 1px solid #e5e7eb; margin-bottom: 14px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+        .preorder-card-img { width: 100%; height: 180px; object-fit: cover; }
+        .preorder-card-body { padding: 14px; }
+        .preorder-card-body h3 { margin: 0 0 4px; font-size: 1.05rem; color: var(--text); }
+        .preorder-designer { font-size: 0.82rem; color: #7c3aed; margin-bottom: 8px; display: flex; align-items: center; gap: 4px; }
+        .preorder-desc { font-size: 0.85rem; color: var(--gray); margin-bottom: 12px; line-height: 1.5; }
+
+        .preorder-progress-wrap { margin-bottom: 10px; }
+        .preorder-progress-label { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--gray); margin-bottom: 5px; }
+        .preorder-progress-label .highlight { color: #7c3aed; font-weight: bold; }
+        .progress-bar-bg { background: #ede9fe; border-radius: 99px; height: 8px; }
+        .progress-bar-fill { background: linear-gradient(to right, #7c3aed, #4f46e5); height: 8px; border-radius: 99px; transition: width 0.4s ease; }
+
+        .preorder-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+        .preorder-tag { font-size: 0.75rem; padding: 3px 8px; border-radius: 8px; }
+        .tag-purple { background: #ede9fe; color: #6d28d9; }
+        .tag-green { background: #ecfdf5; color: #059669; }
+        .tag-orange { background: #fff7ed; color: #c2410c; }
+
+        .preorder-footer { display: flex; align-items: center; justify-content: space-between; }
+        .preorder-price { font-size: 1.15rem; font-weight: bold; color: var(--text); }
+        .preorder-price span { font-size: 0.8rem; font-weight: normal; color: var(--gray); }
+        .btn-preorder { background: #7c3aed; color: white; border: none; border-radius: 10px; padding: 10px 18px; font-size: 0.9rem; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        .btn-preorder:active { background: #6d28d9; }
+        .btn-preorder.full { background: #9ca3af; cursor: default; }
+
+        .preorder-detail-modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); z-index: 150; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s ease; overflow-y: auto; }
+        .preorder-detail-modal.open { transform: translateX(0); }
+        .preorder-detail-header { background: #7c3aed; color: white; padding: 16px; display: flex; align-items: center; gap: 14px; font-size: 1.1rem; font-weight: bold; }
+        .preorder-detail-header button { background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; }
+        .preorder-detail-img { width: 100%; height: 250px; object-fit: cover; }
+        .preorder-detail-body { padding: 16px; padding-bottom: 40px; }
+        .size-btn-group { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 16px; }
+        .size-btn { padding: 7px 16px; border: 1px solid #e5e7eb; border-radius: 8px; background: white; font-size: 0.88rem; cursor: pointer; color: var(--text); transition: all 0.15s; }
+        .size-btn.selected { border-color: #7c3aed; background: #ede9fe; color: #7c3aed; font-weight: bold; }
+        .btn-confirm-preorder { width: 100%; background: #7c3aed; color: white; border: none; border-radius: 14px; padding: 16px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 8px; transition: background 0.2s; }
+        .btn-confirm-preorder:active { background: #6d28d9; }
+        .designer-info-box { background: white; border-radius: 12px; border: 1px solid #e5e7eb; padding: 14px; margin-bottom: 16px; display: flex; gap: 12px; align-items: center; }
+        .designer-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+        .designer-info-box p { margin: 0; font-size: 0.82rem; color: var(--gray); }
+        .designer-info-box h4 { margin: 0 0 2px; font-size: 0.95rem; }
+        /* ===== 預購樣式結束 ===== */
+
+        /* ===== 上架表單介面樣式 ===== */
+        #upload-modal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg); z-index: 160; display: flex; flex-direction: column;
+            transform: translateY(100%); transition: transform 0.35s cubic-bezier(.4,0,.2,1);
+            overflow-y: auto;
+        }
+        #upload-modal.open { transform: translateY(0); }
+
+        .upload-header {
+            background: var(--primary); color: white; padding: 16px;
+            display: flex; align-items: center; gap: 14px;
+            font-size: 1.1rem; font-weight: bold; flex-shrink: 0;
+            position: sticky; top: 0; z-index: 10;
+        }
+        .upload-header button { background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; }
+
+        .upload-photo-zone {
+            margin: 16px; border: 2px dashed #d1d5db; border-radius: 16px;
+            height: 180px; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 10px;
+            cursor: pointer; transition: all 0.2s; background: white; position: relative; overflow: hidden;
+        }
+        .upload-photo-zone:active { border-color: var(--primary); background: #f0fdf4; }
+        .upload-photo-zone .zone-icon { font-size: 2.5rem; color: #9ca3af; }
+        .upload-photo-zone .zone-text { font-size: 0.9rem; color: #9ca3af; }
+        .upload-photo-zone .zone-sub { font-size: 0.75rem; color: #d1d5db; }
+        .upload-photo-zone img.preview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        .upload-photo-zone .change-btn {
+            position: absolute; bottom: 10px; right: 10px;
+            background: rgba(0,0,0,0.55); color: white; border: none; border-radius: 8px;
+            padding: 5px 10px; font-size: 0.75rem; cursor: pointer;
+        }
+
+        .upload-form { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 14px; }
+
+        .form-group label {
+            display: block; font-size: 0.82rem; font-weight: bold;
+            color: #374151; margin-bottom: 6px;
+        }
+        .form-group label span { color: #ef4444; }
+        .form-input {
+            width: 100%; padding: 12px 14px; border: 1px solid #e5e7eb;
+            border-radius: 12px; font-size: 0.9rem; background: white;
+            outline: none; color: var(--text); transition: border-color 0.2s;
+            appearance: none; -webkit-appearance: none;
+        }
+        .form-input:focus { border-color: var(--primary); }
+        textarea.form-input { height: 80px; resize: none; line-height: 1.5; }
+
+        .tag-select-group { display: flex; gap: 8px; flex-wrap: wrap; }
+        .tag-select-btn {
+            padding: 6px 14px; border: 1px solid #e5e7eb; border-radius: 99px;
+            background: white; font-size: 0.82rem; color: #6b7280; cursor: pointer; transition: all 0.15s;
+        }
+        .tag-select-btn.active { background: #ecfdf5; color: var(--primary); border-color: #6ee7b7; font-weight: bold; }
+
+        .condition-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .condition-btn {
+            padding: 10px 8px; border: 1px solid #e5e7eb; border-radius: 12px;
+            background: white; font-size: 0.82rem; color: #6b7280; cursor: pointer;
+            text-align: center; transition: all 0.15s; line-height: 1.4;
+        }
+        .condition-btn .cond-icon { font-size: 1.2rem; display: block; margin-bottom: 3px; }
+        .condition-btn.active { background: #ecfdf5; color: var(--primary); border-color: #6ee7b7; font-weight: bold; }
+
+        .privacy-tip {
+            background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px;
+            padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start;
+        }
+        .privacy-tip i { color: var(--primary); font-size: 1rem; margin-top: 2px; flex-shrink: 0; }
+        .privacy-tip p { margin: 0; font-size: 0.8rem; color: #065f46; line-height: 1.5; }
+
+        .btn-submit-upload {
+            width: 100%; background: var(--primary); color: white; border: none;
+            border-radius: 14px; padding: 16px; font-size: 1rem; font-weight: bold;
+            cursor: pointer; transition: background 0.2s; margin-top: 4px;
+        }
+        .btn-submit-upload:active { background: #059669; }
+        .btn-submit-upload:disabled { background: #9ca3af; cursor: default; }
+        /* ===== 上架表單樣式結束 ===== */
+
+        /* ===== 社區報告樣式 ===== */
+        #hub-report-modal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg); z-index: 170; display: flex; flex-direction: column;
+            transform: translateY(100%); transition: transform 0.35s cubic-bezier(.4,0,.2,1);
+            overflow-y: auto;
+        }
+        #hub-report-modal.open { transform: translateY(0); }
+        .report-header {
+            background: #1d4ed8; color: white; padding: 16px;
+            display: flex; align-items: center; gap: 14px;
+            font-size: 1.1rem; font-weight: bold; flex-shrink: 0;
+            position: sticky; top: 0; z-index: 10;
+        }
+        .report-header button { background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; }
+        .report-hero { background: linear-gradient(135deg, #1d4ed8, #0891b2); color: white; padding: 20px 16px 24px; }
+        .report-hero h2 { margin: 0 0 4px; font-size: 1.15rem; }
+        .report-hero p { margin: 0; font-size: 0.82rem; opacity: 0.85; }
+        .report-period { display: inline-block; background: rgba(255,255,255,0.2); border-radius: 99px; padding: 3px 10px; font-size: 0.75rem; margin-top: 8px; }
+        .report-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; padding-bottom: 32px; }
+        .report-stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .report-stat-card { background: white; border-radius: 14px; border: 1px solid #e5e7eb; padding: 14px; text-align: center; }
+        .report-stat-icon { font-size: 1.6rem; margin-bottom: 6px; }
+        .report-stat-val { font-size: 1.5rem; font-weight: bold; color: var(--text); }
+        .report-stat-label { font-size: 0.75rem; color: #6b7280; margin-top: 3px; }
+        .report-stat-card.accent { background: #eff6ff; border-color: #bfdbfe; }
+        .report-stat-card.accent .report-stat-val { color: #1d4ed8; }
+        .report-section-title { font-size: 0.85rem; font-weight: bold; color: #374151; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+        .report-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 0.82rem; }
+        .report-bar-label { width: 56px; color: #6b7280; flex-shrink: 0; }
+        .report-bar-bg { flex: 1; background: #f3f4f6; border-radius: 99px; height: 10px; }
+        .report-bar-fill { height: 10px; border-radius: 99px; background: linear-gradient(to right, #10b981, #0891b2); }
+        .report-bar-pct { width: 36px; text-align: right; color: #374151; font-weight: bold; flex-shrink: 0; }
+        .report-g-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 14px; padding: 14px; }
+        .report-g-box h4 { margin: 0 0 10px; font-size: 0.9rem; color: #1d4ed8; }
+        .report-g-item { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; font-size: 0.82rem; color: #374151; line-height: 1.5; }
+        .report-g-item i { color: #1d4ed8; margin-top: 2px; flex-shrink: 0; }
+        /* ===== 社區報告樣式結束 ===== */
+    </style>
 </head>
-
 <body>
-    <!-- 背景層 -->
-    <div class="bg-grid"></div>
-    <div class="blob blob-1"></div>
-    <div class="blob blob-2"></div>
 
+<div id="app">
+    <header id="header-title">探索周邊</header>
 
-    <!-- 導覽列層 -->
-    <nav class="navbar">
-        <div class="nav-container">
-            <a href="#home" class="logo" onclick="switchPage('home')" >
-                &lt;Borui<span>/</span>&gt;
-            </a>
-
-            <div class="nav-links">
-                <a href="#home" onclick="switchPage('home')" id="nav-home" class="nav-link">
-                    <span>首頁</span>
-                </a>
-                <a href="#about" onclick="switchPage('about')" id="nav-about" class="nav-link">
-                    <span>關於我</span>
-                </a>
-                <a href="experience.html" id="nav-projects" class="nav-link">
-                    <span>專案作品</span>
-                </a>
-                <a href="#contact" onclick="switchPage('contact')" id="nav-contact" class="nav-link">
-                    <span>即將推出</span>
-                </a>
-            </div>
-        </div>
-    </nav>
-
-
-    <!-- 各個主題頁面 -->
-    <main>
-        <!-- 首頁 -->
-        <section id="home" class="page-section active">
-            <div class="container">
-                <div class="hero-layout">
-                    <!-- 左側：文字區 -->
-                    <div class="hero-text">
-                        <div class="tag">NKUST CCE Student</div>
-
-                        <h1>
-                            Building Future<br>
-                            <span class="gradient-text">with Code & AI.</span>
-                        </h1>
-                        
-                        <div class="typing-container">
-                            I specialize in&nbsp;
-                            <span id="typing-text" style="color: var(--text-white);"></span>
-                            <span class="typing-cursor"></span>
-                        </div>
-                        
-                        <p class="hero-desc">
-                            喜歡將腦中想法用程式具現化，目前正在深入學習AI、資安與軟體設計，並將AI融入到各個領域的實踐中，讓生活中的所有難題，都能找到最佳解法。
-                        </p>
-
-                        <div class="cta-group">
-                            <a href="experience.html" class="btn btn-primary">
-                                查看專案
-                            </button>
-                            <a href="https://github.com/borui0312" target="_blank" class="btn btn-outline">
-                                <i class="fab fa-github"></i> GitHub
-                            </a>
-                        </div>
-                    </div>
-
-                    <!-- 右側：終端機區 -->
-                    <div class="hero-terminal">
-                        <div class="terminal-box">
-                            <div class="terminal-header">
-                                <div class="terminal-dots">
-                                    <div class="dot dot-red"></div>
-                                    <div class="dot dot-yellow"></div>
-                                    <div class="dot dot-green"></div>
-                                </div>
-                                <div class="terminal-title">borui@nkust: ~/portfolio</div>
-                            </div>
-                            <div class="terminal-body">
-                                <div class="code-line">
-                                    <span class="c-cmd">➜</span> <span class="c-path">~</span> <span class="c-path">python3</span> info.py
-                                </div>
-                                <div style="margin-top: 0.5rem; padding-left: 1rem; border-left: 2px solid #4b5563;">
-                                    <div class="code-line"><span class="c-cls">class</span> <span class="c-path">Borui</span>:</div>
-                                    <div class="code-line indent">def <span class="c-def">__init__</span>(self):</div>
-                                    <div class="code-line indent" style="padding-left: 3rem;">self.name = <span class="c-str">"郭柏銳"</span></div>
-                                    <div class="code-line indent" style="padding-left: 3rem;">self.university = <span class="c-str">"NKUST"</span></div>
-                                    <div class="code-line indent" style="padding-left: 3rem;">self.major = <span class="c-str">"Computer and Communication Engineering"</span></div>
-                                    <div class="code-line indent" style="padding-left: 3rem;">self.hobbies = [<span class="c-str">"Programming"</span>, <span class="c-str">"Listen to music"</span>]</div>
-                                    <br>
-                                    <div class="code-line indent">def <span class="c-def">current_status</span>(self):</div>
-                                    <div class="code-line indent" style="padding-left: 3rem;"><span class="c-cls">return</span> <span class="c-str">"Ready for challenges!"</span></div>
-                                </div>
-                                <div class="code-line" style="margin-top: 1rem;">
-                                    <span class="c-cmd">➜</span> <span class="c-path">~</span> <span class="c-path">sh</span> welcome_my_web.sh
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-
-        <!-- 關於我 -->
-        <section id="about" class="page-section active">
-            <div class="container">
-                <div class="about-wrapper">
-                    <!-- 左側：照片區 -->
-                    <div class="about-visual">
-                        <div class="profile-frame">
-                            <img src="assets/image/self_photo.png" class="profile-img">
-                            <div class="frame-backdrop"></div>
-                            <div class="floating-badge badge-top">
-                                <i class="fas fa-scroll"></i> Award History
-                            </div>
-                        </div>
-
-                        <!-- 點擊按鈕 打開彈窗 -->
-                        <a href="#" id="open-resume" class="btn-resume">
-                            <i class="fas fa-file-image"></i> Preview Resume
-                        </a>
-                    </div>
-
-
-                    <!-- 右側：內容區 -->
-                    <div class="about-content">
-                        <h3 class="about-headline">
-                            重點 <span class="gradient-text">戰績與成就</span>
-                        </h3>
-
-                        <!-- 獎項列表 -->
-                        <div class="awards-list">
-                            <div class="award-card">
-                                <div class="award-year">NOW</div>
-                                <div class="award-info">
-                                    <h4>115年度 U-start 創新創業計畫</h4>
-                                    <span class="award-rank"><i class="fas fa-running"></i> 正在進行 ing</span>
-                                </div>
-                            </div>
-                            <div class="award-card">
-                                <div class="award-year">2024</div>
-                                <div class="award-info">
-                                    <h4>113年全國專題實作及創意競賽
-                                        <span>電機與電子群</span>
-                                    </h4>
-                                    <span class="award-rank"><i class="fas fa-medal"></i> 第3名 </span>
-                                </div>
-                            </div>
-                            <div class="award-card">
-                                <div class="award-year">2024</div>
-                                <div class="award-info">
-                                    <h4>第54屆全國技能競賽北區賽
-                                        <span>網路安全</span>
-                                    </h4>
-                                    <span class="award-rank"><i class="fas fa-certificate"></i> 第4名 </span>
-                                </div>
-                            </div>
-                            <div class="award-card">
-                                <div class="award-year">2025</div>
-                                <div class="award-info">
-                                    <h4>基隆市政府×加州大學柏克萊分校：113學年度 AI 微課程</h4>
-                                    <span class="award-rank"><i class="fas fa-graduation-cap"></i> 結訓 </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 底部技能與按鈕 -->
-                        <div class="about-footer">
-                            <div class="skills-container">
-                                <span class="skill-tag"><i class="fa-brands fa-python"></i> Python</span>
-                                <span class="skill-tag"><i class="devicon-cplusplus-plain"></i> C++</span>
-                                <span class="skill-tag"><i class="fas fa-brain"></i> ML</span>
-                                <span class="skill-tag"><i class="fas fa-globe"></i> Web Dev</span>
-                                <span class="skill-tag"><i class="fas fa-shield-alt"></i> Cybersecurity</span>
-                            </div>
-                            <div class="about-action">
-                                <a href="#" id="open-transcript" class="btn btn-primary" style="background-color: var(--primary-color); color: var(--text-white); padding: 10px 20px; border-radius: 5px; text-decoration: none;">
-                                    <i class="fas fa-file-alt"></i> 大學成績單
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- resume 彈跳視窗 -->
-            <div id="resume-modal" class="modal">    
-                <div class="modal-content">
-                    <span class="close-modal">&times;</span>
-                    <!-- 簡歷預覽圖 -->
-                    <img src="assets/image/resume.png" style="width:100%; height:auto; border-radius:8px;">
-                    
-                    <div class="modal-footer">
-                        <a href="assets/image/resume.pdf" target="_blank" download class="download-action-btn">
-                            <i class="fas fa-download"></i> 下載 PDF
-                        </a>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- transcript 彈跳視窗 -->
-            <div id="transcript-modal" class="modal">
-                <!-- 更改寬度 -->
-                <div class="modal-content" style="max-width: 1200px;">
-                    <span class="close-modal">&times;</span>
-                    <h3 style="color: #fff; margin-bottom: 15px;">大學歷年成績單</h3>
-
-                    <div class="transcript-gallery">
-                        <img src="assets/image/transcript1.png" class="transcript-img">
-                        <img src="assets/image/transcript2.png" class="transcript-img">
-                    </div>
-                    
-                    <div class="modal-footer">
-                        <a href="assets/image/transcript.pdf" target="_blank" download class="download-action-btn">
-                            <i class="fas fa-download"></i> 下載 PDF
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-
-
-        <!-- 即將推出 -->
-        <section id="contact" class="page-section">
-            <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 40vh; gap: 20px;">
-                <img src="assets/image/icon/constructing.png">
-                <h3 style="color: var(--text-main); font-size: 1.5rem; font-weight: 600;">即將推出...</h3>
-            </div>
-        </section>
-
+    <main id="view-home" class="view active">
+        <div class="privacy-notice"><i class="fas fa-check-circle"></i> 超出範圍進行社區交換衣服，將無法獲得碳點。</div>
+        <div id="map"></div>
     </main>
 
-    <footer>
-        <div class="footer-icons">
-            <a href="q502020060213@gmail.com" target="_blank" class="icon-link" title="Email"><i class="fas fa-envelope"></i></a>
-            <a href="https://github.com/borui0312"  target="_blank" class="icon-link" title="GitHub"><i class="fab fa-github"></i></a>
-            <a href="https://hackmd.io/@borui" target="_blank" class="icon-link" title="HackMD"><i class="fas fa-file-lines"></i></a>
+    <main id="view-match" class="view">
+        <div class="swipe-container" id="swipe-container"></div>
+        <div class="tinder-controls">
+            <button class="btn-swipe btn-nope" onclick="handleSwipe('left')" title="跳過"><i class="fas fa-times"></i></button>
+            <button class="btn-swipe btn-like" onclick="handleSwipe('right')" title="有興趣"><i class="fas fa-heart"></i></button>
         </div>
-    </footer>
+        <div class="swipe-hint">← 跳過 &nbsp;|&nbsp; 有興趣 →</div>
+    </main>
 
-    <!-- 引入外部 JS -->
-    <script src="assets/script.js"></script>
+    <main id="view-chat" class="view">
+        <h2 style="margin-bottom: 16px; font-size: 1.2rem;">匹配成功的交換</h2>
+
+        <div class="item-card" onclick="openChat('User_992', '復古牛仔外套', 'https://picsum.photos/id/1025/300/300', 12)" style="border-color:#fde68a;">
+            <img src="https://ui-avatars.com/api/?name=U&background=3b82f6&color=fff" alt="Avatar">
+            <div class="item-info" style="width:100%;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <h3>User_992</h3>
+                    <span style="font-size:0.8rem;color:var(--gray);">10:35</span>
+                </div>
+                <p>約定交換：復古牛仔外套</p>
+                <div class="points-badge"><i class="fas fa-leaf"></i> 預計可獲 +12 碳點</div>
+                <div style="display:flex;gap:6px;align-items:center;margin-top:8px;font-size:0.75rem;">
+                    <span style="color:#10b981;font-weight:bold;"><i class="fas fa-check-circle"></i> 我已確認</span>
+                    <span style="color:#d1d5db;">·</span>
+                    <span style="color:#f59e0b;"><i class="fas fa-clock"></i> 等待對方確認</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 情境B：對方確認了，我還沒 -->
+        <div class="item-card" style="border-color:#bfdbfe;">
+            <img src="https://ui-avatars.com/api/?name=E&background=f59e0b&color=fff" alt="Avatar">
+            <div class="item-info" style="width:100%;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <h3>EcoGirl_01</h3>
+                    <span style="font-size:0.8rem;color:var(--gray);">昨天</span>
+                </div>
+                <p>約定交換：純棉白色 T-shirt</p>
+                <div class="points-badge"><i class="fas fa-leaf"></i> 預計可獲 +5 碳點</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+                    <span style="font-size:0.75rem;color:#f59e0b;"><i class="fas fa-clock"></i> 等我確認 &nbsp;·&nbsp; <span style="color:#10b981;"><i class="fas fa-check-circle"></i> 對方已確認</span></span>
+                    <button id="confirm-btn-ecogirl" onclick="confirmExchange(this,'EcoGirl_01')"
+                        style="background:#1d4ed8;color:white;border:none;border-radius:8px;padding:5px 12px;font-size:0.78rem;font-weight:bold;cursor:pointer;white-space:nowrap;">
+                        <i class="fas fa-handshake"></i> 確認收到
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 已完成交換 -->
+        <h2 style="margin: 20px 0 12px; font-size: 1.1rem; color: #6b7280;">✅ 已完成的交換</h2>
+
+        <div class="item-card" style="background:#f9fafb; border-color:#e5e7eb; opacity:0.88;">
+            <img src="https://ui-avatars.com/api/?name=GR&background=9ca3af&color=fff" alt="Avatar">
+            <div class="item-info">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <h3 style="color:#6b7280;">GreenRider_77</h3>
+                    <span style="font-size:0.8rem;color:#9ca3af;">5/2</span>
+                </div>
+                <p style="color:#9ca3af;">已交換：Uniqlo 棉質連帽外套</p>
+                <div style="display:inline-block;background:#f3f4f6;color:#6b7280;padding:3px 8px;border-radius:6px;font-size:0.75rem;font-weight:bold;margin-top:4px;border:1px solid #e5e7eb;">
+                    <i class="fas fa-leaf" style="color:#6b7280;"></i> 成功減碳 約 2.3 kg CO₂
+                </div>
+                <p style="color:#9ca3af;font-size:0.82rem;margin-top:6px;">謝謝！外套很合身，下次再換 🙌</p>
+            </div>
+        </div>
+
+        <div class="item-card" style="background:#f9fafb; border-color:#e5e7eb; opacity:0.88;">
+            <img src="https://ui-avatars.com/api/?name=TC&background=9ca3af&color=fff" alt="Avatar">
+            <div class="item-info">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <h3 style="color:#6b7280;">TrendCycle_K</h3>
+                    <span style="font-size:0.8rem;color:#9ca3af;">4/28</span>
+                </div>
+                <p style="color:#9ca3af;">已交換：復古格紋長裙</p>
+                <div style="display:inline-block;background:#f3f4f6;color:#6b7280;padding:3px 8px;border-radius:6px;font-size:0.75rem;font-weight:bold;margin-top:4px;border:1px solid #e5e7eb;">
+                    <i class="fas fa-leaf" style="color:#6b7280;"></i> 成功減碳 約 1.8 kg CO₂
+                </div>
+                <p style="color:#9ca3af;font-size:0.82rem;margin-top:6px;">超快速交換，人很好！</p>
+            </div>
+        </div>
+
+        <div class="item-card" style="background:#f9fafb; border-color:#e5e7eb; opacity:0.88;">
+            <img src="https://ui-avatars.com/api/?name=SL&background=9ca3af&color=fff" alt="Avatar">
+            <div class="item-info">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <h3 style="color:#6b7280;">SlowFash_Lin</h3>
+                    <span style="font-size:0.8rem;color:#9ca3af;">4/19</span>
+                </div>
+                <p style="color:#9ca3af;">已交換：純棉寬版 T-shirt × 2</p>
+                <div style="display:inline-block;background:#f3f4f6;color:#6b7280;padding:3px 8px;border-radius:6px;font-size:0.75rem;font-weight:bold;margin-top:4px;border:1px solid #e5e7eb;">
+                    <i class="fas fa-leaf" style="color:#6b7280;"></i> 成功減碳 約 3.1 kg CO₂
+                </div>
+                <p style="color:#9ca3af;font-size:0.82rem;margin-top:6px;">兩件都很新，非常滿意！</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- 升級版：我的錢包與上架區塊 -->
+    <main id="view-profile" class="view">
+        
+        <!-- 個人資料與錢包卡片 (加入 onclick 觸發打開商城) -->
+        <div class="profile-card" onclick="openStore()">
+            <div class="user-info">
+                <img src="https://ui-avatars.com/api/?name=Me&background=fff&color=10b981" alt="User">
+                <div>
+                    <h2 style="margin:0; font-size: 1.2rem;">使用者 (我)</h2>
+                    <p style="margin:0; font-size: 0.85rem; color: #d1fae5;">環保小尖兵 🌱</p>
+                </div>
+            </div>
+            <div class="wallet-balance">
+                <p>目前碳點 <span style="font-size: 0.75rem; color: #a7f3d0;">(點擊進入商城)</span></p>
+                <div class="points" id="profile-points-display">120 <span style="font-size: 1rem; font-weight: normal;">點</span></div>
+            </div>
+            <div style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.2); display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-smog" style="font-size:1.1rem; color:#a7f3d0;"></i>
+                <div>
+                    <p style="margin:0; font-size:0.72rem; color:#a7f3d0;">累積成功減碳量</p>
+                    <p style="margin:0; font-size:1.1rem; font-weight:bold; color:white;">7.2 kg CO₂</p>
+                </div>
+                <span style="margin-left:auto; font-size:0.7rem; color:#a7f3d0; background:rgba(255,255,255,0.15); padding:2px 8px; border-radius:99px;">≈ 種了 0.4 棵樹 🌳</span>
+            </div>
+        </div>
+
+        <button class="btn-upload-large" onclick="openUploadModal()">
+            <i class="fas fa-camera"></i>
+            <div>
+                <strong>上架我的二手衣物</strong>
+                <p style="font-size: 0.75rem; margin-top: 2px; font-weight: normal; color: #9ca3af;">填寫資料、選擇據點，輕鬆上架</p>
+            </div>
+        </button>
+
+        <!-- 我的上架商品 (取代了原本的商城) -->
+        <div class="my-items-section">
+            <h3 style="margin-bottom: 12px; color: var(--text);">📦 目前上架的商品</h3>
+            <div id="my-items-list">
+                <!-- 由 JavaScript 動態渲染 -->
+            </div>
+        </div>
+    </main>
+
+    <nav id="bottom-nav">
+        <button class="nav-btn active" data-target="view-home"><i class="fas fa-map-marker-alt"></i>周邊</button>
+        <button class="nav-btn" data-target="view-match"><i class="fas fa-layer-group"></i>匹配</button>
+        <button class="nav-btn" data-target="view-preorder"><i class="fas fa-palette"></i>預購</button>
+        <button class="nav-btn" data-target="view-chat"><i class="fas fa-comment-dots"></i>訊息</button>
+        <button class="nav-btn" data-target="view-profile"><i class="fas fa-leaf"></i>我的</button>
+    </nav>
+
+    <!-- 碳點兌換商城 (Bottom Sheet 滑出視窗) -->
+    <div id="store-modal">
+        <div class="store-content">
+            <div class="store-header">
+                <h3>🛒 碳點兌換商城</h3>
+                <button onclick="closeStore()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="store-body">
+                <div class="reward-list">
+                    <div class="reward-item">
+                        <img src="https://images.unsplash.com/photo-1584992236310-6edddc08acff?w=300&q=80" alt="不鏽鋼吸管">
+                        <div class="reward-info">
+                            <h4>不鏽鋼環保吸管組</h4>
+                            <div class="reward-bottom">
+                                <span class="cost"><i class="fas fa-leaf"></i> 50 點</span>
+                                <button onclick="redeemItem('不鏽鋼環保吸管組', 50)">兌換</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="reward-item">
+                        <img src="https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=300&q=80" alt="帆布袋">
+                        <div class="reward-info">
+                            <h4>無印風純棉環保袋</h4>
+                            <div class="reward-bottom">
+                                <span class="cost"><i class="fas fa-leaf"></i> 100 點</span>
+                                <button onclick="redeemItem('無印風純棉環保袋', 100)">兌換</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="reward-item">
+                        <img src="https://images.unsplash.com/photo-1555658636-6e4a36210b16?w=300&q=80" alt="咖啡折價券">
+                        <div class="reward-info">
+                            <h4>知名連鎖咖啡 50元 折價券</h4>
+                            <div class="reward-bottom">
+                                <span class="cost"><i class="fas fa-leaf"></i> 150 點</span>
+                                <button onclick="redeemItem('知名連鎖咖啡 50元 折價券', 150)">兌換</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 社區報告頁面 ===== -->
+    <div id="hub-report-modal">
+        <div class="report-header">
+            <button onclick="closeHubReport()"><i class="fas fa-chevron-left"></i></button>
+            <span id="report-hub-name">社區月報</span>
+        </div>
+        <div class="report-hero">
+            <h2 id="report-hub-title">據點名稱</h2>
+            <p>高雄認證社區站 · ESG 透明治理報告</p>
+            <span class="report-period">📅 本月報告：2025年5月</span>
+        </div>
+        <div class="report-body">
+
+            <!-- 核心數據 -->
+            <div>
+                <div class="report-section-title"><i class="fas fa-chart-bar" style="color:#10b981;"></i> 本月核心數據</div>
+                <div class="report-stat-grid">
+                    <div class="report-stat-card accent">
+                        <div class="report-stat-icon">👕</div>
+                        <div class="report-stat-val" id="report-swap-count">—</div>
+                        <div class="report-stat-label">本月交換件數</div>
+                    </div>
+                    <div class="report-stat-card accent">
+                        <div class="report-stat-icon">🌿</div>
+                        <div class="report-stat-val" id="report-carbon">—</div>
+                        <div class="report-stat-label">減少碳排 (kg CO₂)</div>
+                    </div>
+                    <div class="report-stat-card">
+                        <div class="report-stat-icon">♻️</div>
+                        <div class="report-stat-val" id="report-recycle-rate">—</div>
+                        <div class="report-stat-label">衣物再循環率</div>
+                    </div>
+                    <div class="report-stat-card">
+                        <div class="report-stat-icon">👥</div>
+                        <div class="report-stat-val" id="report-users">—</div>
+                        <div class="report-stat-label">本月活躍用戶</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 衣物品項分布 -->
+            <div>
+                <div class="report-section-title"><i class="fas fa-tshirt" style="color:#6366f1;"></i> 交換衣物品項分布</div>
+                <div style="background:white;border-radius:14px;border:1px solid #e5e7eb;padding:14px;">
+                    <div class="report-bar-row"><span class="report-bar-label">上衣</span><div class="report-bar-bg"><div class="report-bar-fill" id="bar-top"></div></div><span class="report-bar-pct" id="pct-top"></span></div>
+                    <div class="report-bar-row"><span class="report-bar-label">外套</span><div class="report-bar-bg"><div class="report-bar-fill" id="bar-outer" style="background:linear-gradient(to right,#6366f1,#8b5cf6);"></div></div><span class="report-bar-pct" id="pct-outer"></span></div>
+                    <div class="report-bar-row"><span class="report-bar-label">褲裙</span><div class="report-bar-bg"><div class="report-bar-fill" id="bar-bottom" style="background:linear-gradient(to right,#f59e0b,#ef4444);"></div></div><span class="report-bar-pct" id="pct-bottom"></span></div>
+                    <div class="report-bar-row"><span class="report-bar-label">鞋包配件</span><div class="report-bar-bg"><div class="report-bar-fill" id="bar-acc" style="background:linear-gradient(to right,#0891b2,#6366f1);"></div></div><span class="report-bar-pct" id="pct-acc"></span></div>
+                </div>
+            </div>
+
+            <!-- 環境效益換算 -->
+            <div>
+                <div class="report-section-title"><i class="fas fa-seedling" style="color:#10b981;"></i> 環境效益換算</div>
+                <div style="background:white;border-radius:14px;border:1px solid #e5e7eb;padding:14px;display:flex;flex-direction:column;gap:10px;">
+                    <div style="display:flex;align-items:center;gap:10px;font-size:0.85rem;">
+                        <span style="font-size:1.4rem;">🌳</span>
+                        <span style="color:#374151;">相當於種下 <b id="report-trees" style="color:#10b981;"></b> 棵樹的固碳量</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;font-size:0.85rem;">
+                        <span style="font-size:1.4rem;">💧</span>
+                        <span style="color:#374151;">節省約 <b id="report-water" style="color:#0891b2;"></b> 公升水資源</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;font-size:0.85rem;">
+                        <span style="font-size:1.4rem;">🚗</span>
+                        <span style="color:#374151;">等同減少 <b id="report-car" style="color:#6366f1;"></b> 公里的汽車碳排</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- G 治理揭露 -->
+            <div class="report-g-box">
+                <h4><i class="fas fa-shield-alt"></i> 平台治理揭露（ESG · G）</h4>
+                <div class="report-g-item"><i class="fas fa-check-circle"></i>碳點換算公式依環保署《紡織品碳足跡係數》公開計算，本據點適用係數 2.3 kg CO₂／件</div>
+                <div class="report-g-item"><i class="fas fa-check-circle"></i>本月共受理 <span id="report-dispute">0</span> 件申訴，均於 72 小時內完成處理</div>
+                <div class="report-g-item"><i class="fas fa-check-circle"></i>據點管理員每週執行品質抽檢，本月不合格下架率 <span id="report-reject-rate">3.2</span>%</div>
+                <div class="report-g-item"><i class="fas fa-check-circle"></i>所有交換紀錄保存 180 天，用戶可申請查閱個人交換履歷</div>
+            </div>
+
+        </div>
+    </div>
+    <!-- ===== 社區報告頁面結束 ===== -->
+
+    <!-- ===== 上架二手衣物表單 ===== -->
+    <div id="upload-modal">
+        <div class="upload-header">
+            <button onclick="closeUploadModal()"><i class="fas fa-chevron-left"></i></button>
+            <span>上架我的二手衣物</span>
+        </div>
+
+        <!-- 拍照區 -->
+        <div class="upload-photo-zone" id="photo-zone" onclick="pickPhoto()">
+            <i class="fas fa-camera zone-icon"></i>
+            <span class="zone-text">點擊拍照或上傳圖片</span>
+            <span class="zone-sub">建議正面清楚拍攝衣物</span>
+        </div>
+
+        <div class="upload-form">
+
+            <!-- 衣物名稱 -->
+            <div class="form-group">
+                <label>衣物名稱 <span>*</span></label>
+                <input type="text" class="form-input" id="upload-name" placeholder="例：Nike 黑色防風外套" maxlength="30">
+            </div>
+
+            <!-- 衣物品項 -->
+            <div class="form-group">
+                <label>品項類型 <span>*</span></label>
+                <div class="tag-select-group" id="category-group">
+                    <button class="tag-select-btn" onclick="selectTag(this,'category')">👕 上衣</button>
+                    <button class="tag-select-btn" onclick="selectTag(this,'category')">👖 褲子</button>
+                    <button class="tag-select-btn" onclick="selectTag(this,'category')">🧥 外套</button>
+                    <button class="tag-select-btn" onclick="selectTag(this,'category')">👗 裙子</button>
+                    <button class="tag-select-btn" onclick="selectTag(this,'category')">👟 鞋包</button>
+                    <button class="tag-select-btn" onclick="selectTag(this,'category')">🎩 配件</button>
+                </div>
+            </div>
+
+            <!-- 衣物狀況 -->
+            <div class="form-group">
+                <label>衣物狀況 <span>*</span></label>
+                <div class="condition-group">
+                    <button class="condition-btn" onclick="selectCondition(this)">
+                        <span class="cond-icon">✨</span>全新未穿
+                    </button>
+                    <button class="condition-btn" onclick="selectCondition(this)">
+                        <span class="cond-icon">👌</span>近全新（1-3次）
+                    </button>
+                    <button class="condition-btn" onclick="selectCondition(this)">
+                        <span class="cond-icon">😊</span>良好（半年內）
+                    </button>
+                    <button class="condition-btn" onclick="selectCondition(this)">
+                        <span class="cond-icon">🕐</span>使用過（有年紀）
+                    </button>
+                </div>
+            </div>
+
+            <!-- 尺寸 -->
+            <div class="form-group">
+                <label>尺寸</label>
+                <select class="form-input" id="upload-size">
+                    <option value="">請選擇尺寸</option>
+                    <option>XS</option><option>S</option><option>M</option>
+                    <option>L</option><option>XL</option><option>XXL</option>
+                    <option>Free Size</option><option>其他</option>
+                </select>
+            </div>
+
+            <!-- 品牌 -->
+            <div class="form-group">
+                <label>品牌（選填）</label>
+                <input type="text" class="form-input" id="upload-brand" placeholder="例：Uniqlo、無品牌...">
+            </div>
+
+            <!-- 補充說明 -->
+            <div class="form-group">
+                <label>補充說明（選填）</label>
+                <textarea class="form-input" id="upload-desc" placeholder="例：洗過後輕微縮水、附腰帶、有小印花..."></textarea>
+            </div>
+
+            <!-- 交換據點 -->
+            <div class="form-group">
+                <label>選擇交換據點 <span>*</span></label>
+                <select class="form-input" id="upload-hub">
+                    <option value="">請選擇最近的據點</option>
+                    <option>鳳山光復社區站</option>
+                    <option>三民科工館據點</option>
+                    <option>左營高鐵環保站</option>
+                    <option>苓雅文化中心站</option>
+                    <option>鼓山駁二據點</option>
+                    <option>前鎮夢時代櫃點</option>
+                    <option>新興中央公園站</option>
+                    <option>楠梓加工區據點</option>
+                </select>
+            </div>
+
+            <!-- 隱私提示 -->
+            <div class="privacy-tip">
+                <i class="fas fa-shield-alt"></i>
+                <p>您的精確位置將自動模糊化處理，地圖上只會顯示附近 300 公尺範圍，保護個人隱私。</p>
+            </div>
+
+            <!-- 送出 -->
+            <button class="btn-submit-upload" id="submit-upload-btn" onclick="submitUpload()">
+                <i class="fas fa-leaf"></i>&nbsp; 確認上架
+            </button>
+
+        </div>
+    </div>
+    <!-- ===== 上架表單結束 ===== -->
+
+    <!-- ===== 限量預購頁面 ===== -->
+    <main id="view-preorder" class="view">
+
+        <div class="preorder-tabs">
+            <button class="preorder-tab active" onclick="filterPreorder('all', this)">全部</button>
+            <button class="preorder-tab" onclick="filterPreorder('open', this)">預購中</button>
+            <button class="preorder-tab" onclick="filterPreorder('soon', this)">即將截止</button>
+            <button class="preorder-tab" onclick="filterPreorder('full', this)">已達標</button>
+        </div>
+
+        <div id="preorder-list"></div>
+    </main>
+
+    <!-- 預購詳情頁 -->
+    <div id="preorder-detail-modal" class="preorder-detail-modal">
+        <div class="preorder-detail-header">
+            <button onclick="closePreorderDetail()"><i class="fas fa-chevron-left"></i></button>
+            <span id="detail-title">商品詳情</span>
+        </div>
+        <img id="detail-img" src="" alt="" class="preorder-detail-img">
+        <div class="preorder-detail-body">
+            <h2 id="detail-name" style="margin: 0 0 6px; font-size: 1.3rem;"></h2>
+            <div class="preorder-designer" id="detail-designer"></div>
+            <div class="designer-info-box" id="detail-designer-box"></div>
+
+            <div class="preorder-progress-wrap" style="margin-bottom:14px;">
+                <div class="preorder-progress-label">
+                    <span>預購進度</span>
+                    <span class="highlight" id="detail-progress-text"></span>
+                </div>
+                <div class="progress-bar-bg"><div class="progress-bar-fill" id="detail-progress-bar"></div></div>
+            </div>
+
+            <p id="detail-desc" style="font-size:0.9rem; color:#6b7280; line-height:1.6; margin-bottom:16px;"></p>
+
+            <div style="margin-bottom: 6px; font-size: 0.9rem; font-weight: bold; color: var(--text);">選擇尺寸</div>
+            <div class="size-btn-group" id="detail-sizes"></div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <div>
+                    <div style="font-size:0.78rem; color:var(--gray);">預購價</div>
+                    <div style="font-size:1.4rem; font-weight:bold;" id="detail-price"></div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:0.78rem; color:var(--gray);">預計出貨</div>
+                    <div style="font-size:0.9rem; font-weight:bold; color:#7c3aed;" id="detail-ship"></div>
+                </div>
+            </div>
+
+            <div style="background:#fffbeb; border-radius:10px; padding:10px 14px; margin-bottom:16px; font-size:0.82rem; color:#92400e;">
+                <i class="fas fa-info-circle"></i> 集滿目標人數才會正式生產，未達標將全額退款。
+            </div>
+
+            <button class="btn-confirm-preorder" id="detail-action-btn" onclick="confirmPreorder()">立即預購</button>
+        </div>
+    </div>
+    <!-- ===== 限量預購頁面結束 ===== -->
+
+    <!-- 聊天室專屬視圖 -->
+    <div id="chat-room">
+        <div class="chat-header">
+            <button onclick="closeChat()"><i class="fas fa-chevron-left"></i></button>
+            <span id="chat-user-name">User_992</span>
+        </div>
+        <div class="chat-banner">
+            <img id="chat-item-img" src="" alt="Item">
+            <div class="chat-banner-info">
+                <p>交換物品：<span id="chat-item-name" style="font-weight: bold;"></span></p>
+                <p class="location">📍 面交點：全家便利商店 (系統推薦)</p>
+                <p style="font-size: 0.85rem; margin-top: 6px; color: var(--text);">
+                    🎁 完成交換預計獲得：<span id="chat-item-points" style="color: var(--primary); font-weight: bold; font-size: 1rem;"></span>
+                </p>
+            </div>
+        </div>
+        <div class="chat-messages" id="chat-messages-container">
+            <div class="msg received">
+                <p>哈囉！我對你的衣服很有興趣，請問這件平常有起毛球嗎？</p>
+                <span class="time">10:30 AM</span>
+            </div>
+            <div class="msg sent">
+                <p>你好👋！這件保存得很好喔，幾乎沒有起毛球。請問你今晚方便面交嗎？</p>
+                <span class="time">10:32 AM</span>
+            </div>
+            <div class="msg received">
+                <p>好的，那我們就約在全家便利商店見面喔！</p>
+                <span class="time">10:35 AM</span>
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chat-input-field" placeholder="輸入訊息..." onkeypress="handleKeyPress(event)">
+            <button onclick="sendMsg()"><i class="fas fa-paper-plane"></i></button>
+        </div>
+    </div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+
+    // 據點資料
+    // 高雄主要社區據點數據 (座標已校對)
+    const hubData = [
+        { id: 1, name: '鳳山光復社區站', lat: 22.630, lng: 120.355, itemCount: 24 }, 
+        { id: 2, name: '三民科工館據點', lat: 22.639, lng: 120.322, itemCount: 18 },
+        { id: 3, name: '左營高鐵環保站', lat: 22.687, lng: 120.301, itemCount: 42 },
+        { id: 4, name: '苓雅文化中心站', lat: 22.626, lng: 120.317, itemCount: 15 },
+        { id: 5, name: '鼓山駁二據點', lat: 22.620, lng: 120.281, itemCount: 21 },
+        { id: 6, name: '前鎮夢時代櫃點', lat: 22.595, lng: 120.306, itemCount: 12 },
+        { id: 7, name: '新興中央公園站', lat: 22.624, lng: 120.301, itemCount: 33 },
+        { id: 8, name: '楠梓加工區據點', lat: 22.711, lng: 120.302, itemCount: 27 }
+    ];
+
+    const mockData = [
+        { id: 1, name: '日系針織開衫', time: '使用半年', distance: 0.8, img: 'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=500&q=80', lat: 22.656, lng: 120.332 },
+        { id: 2, name: 'Levis 經典牛仔褲', time: '使用2年', distance: 1.5, img: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=500&q=80', lat: 22.640, lng: 120.318 },
+        { id: 3, name: 'Nike 運動防風外套', time: '僅試穿', distance: 2.1, img: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500&q=80', lat: 22.668, lng: 120.320 },
+        { id: 4, name: '純棉白色 T-shirt', time: '使用3個月', distance: 0.5, img: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&q=80', lat: 22.652, lng: 120.328 },
+        { id: 5, name: '復古格紋襯衫', time: '使用1年', distance: 2.8, img: 'https://images.unsplash.com/photo-1596755094514-f87e32f85e2c?w=500&q=80', lat: 22.632, lng: 120.340 },
+        { id: 6, name: 'Adidas 慢跑短褲', time: '使用1個月', distance: 1.2, img: 'https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=500&q=80', lat: 22.645, lng: 120.335 },
+        { id: 7, name: '冬季保暖毛衣', time: '使用2次', distance: 3.2, img: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=500&q=80', lat: 22.675, lng: 120.315 },
+        { id: 8, name: '帆布托特包', time: '全新', distance: 1.8, img: 'https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=500&q=80', lat: 22.638, lng: 120.325 }
+    ];
+
+    // 我的上架商品假資料
+    let myUploadedItems = [
+        { id: 101, name: '軍綠色工裝外套', time: '使用1年', status: '上架中', img: 'cp1.png' },
+        { id: 102, name: '黑色百搭帆布鞋', time: '僅試穿', status: '交換中', img: 'cp2.png' }
+    ];
+
+    let currentPoints = 120;
+    let swipeQueue = [...mockData];
+    let map;
+
+    // --- 商城視窗控制 ---
+    function openStore() {
+        document.getElementById('store-modal').classList.add('open');
+    }
+
+    function closeStore() {
+        document.getElementById('store-modal').classList.remove('open');
+    }
+
+    function updatePointsDisplay() {
+        const profileDisplay = document.getElementById('profile-points-display');
+        if(profileDisplay) {
+            profileDisplay.innerHTML = `${currentPoints} <span style="font-size: 1rem; font-weight: normal;">點</span>`;
+        }
+    }
+
+    function redeemItem(itemName, cost) {
+        if (currentPoints < cost) {
+            alert(`❌ 碳點不足！\n此商品需要 ${cost} 點，您目前只有 ${currentPoints} 點。`);
+            return;
+        }
+        if (confirm(`🛒 確定要花費 ${cost} 碳點兌換「${itemName}」嗎？`)) {
+            currentPoints -= cost;
+            updatePointsDisplay();
+            alert(`🎉 兌換成功！\n電子票券已發送至您的訊息匣。`);
+        }
+    }
+
+    // --- 渲染我的上架商品 ---
+    function renderMyItems() {
+        const container = document.getElementById('my-items-list');
+        if (!container) return;
+        
+        if (myUploadedItems.length === 0) {
+            container.innerHTML = `<p style="text-align:center; color: var(--gray); padding: 20px;">目前沒有上架的商品喔！</p>`;
+            return;
+        }
+
+        container.innerHTML = myUploadedItems.map(item => {
+            const statusBg = item.status === '上架中' ? '#ecfdf5' : '#fffbeb';
+            const statusColor = item.status === '上架中' ? 'var(--primary)' : '#f59e0b';
+            
+            return `
+            <div class="item-card" id="my-item-${item.id}">
+                <img src="${item.img}" alt="${item.name}">
+                <div class="item-info">
+                    <h3>${item.name}</h3>
+                    <p><i class="far fa-clock"></i> ${item.time}</p>
+                    <span class="status-tag" style="background: ${statusBg}; color: ${statusColor};">${item.status}</span>
+                </div>
+                <button onclick="removeMyItem(${item.id})" style="position: absolute; right: 16px; top: 16px; background: none; border: none; color: #ef4444; font-size: 1.2rem; cursor: pointer; padding: 4px;">
+                    <i class="far fa-trash-alt"></i>
+                </button>
+            </div>
+        `}).join('');
+    }
+
+    function removeMyItem(id) {
+        if (confirm('確定要下架此商品嗎？')) {
+            myUploadedItems = myUploadedItems.filter(item => item.id !== id);
+            renderMyItems(); // 重新渲染列表
+            alert('✅ 商品已成功下架！');
+        }
+    }
+
+    // ===== 上架表單 JS =====
+    const mockPhotos = [
+        'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=500&q=80',
+        'https://images.unsplash.com/photo-1542272604-787c3835535d?w=500&q=80',
+        'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500&q=80',
+        'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&q=80',
+        'https://images.unsplash.com/photo-1596755094514-f87e32f85e2c?w=500&q=80',
+        'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=500&q=80',
+    ];
+    let uploadPhotoUrl = null;
+    let selectedCategory = null;
+    let selectedConditionEl = null;
+
+    function openUploadModal() {
+        resetUploadForm();
+        document.getElementById('upload-modal').classList.add('open');
+        document.getElementById('bottom-nav').style.transform = 'translateY(100%)';
+    }
+
+    function closeUploadModal() {
+        document.getElementById('upload-modal').classList.remove('open');
+        document.getElementById('bottom-nav').style.transform = 'translateY(0)';
+        document.getElementById('upload-modal').scrollTop = 0;
+    }
+
+    function resetUploadForm() {
+        uploadPhotoUrl = null;
+        selectedCategory = null;
+        selectedConditionEl = null;
+        document.getElementById('upload-name').value = '';
+        document.getElementById('upload-brand').value = '';
+        document.getElementById('upload-desc').value = '';
+        document.getElementById('upload-size').value = '';
+        document.getElementById('upload-hub').value = '';
+        document.querySelectorAll('.tag-select-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.condition-btn').forEach(b => b.classList.remove('active'));
+        const zone = document.getElementById('photo-zone');
+        zone.innerHTML = `
+            <i class="fas fa-camera zone-icon"></i>
+            <span class="zone-text">點擊拍照或上傳圖片</span>
+            <span class="zone-sub">建議正面清楚拍攝衣物</span>`;
+    }
+
+    function pickPhoto() {
+        // 模擬拍照：隨機選一張示意圖
+        uploadPhotoUrl = mockPhotos[Math.floor(Math.random() * mockPhotos.length)];
+        const zone = document.getElementById('photo-zone');
+        zone.innerHTML = `
+            <img src="${uploadPhotoUrl}" class="preview" alt="預覽">
+            <button class="change-btn" onclick="event.stopPropagation(); pickPhoto()">
+                <i class="fas fa-redo"></i> 重拍
+            </button>`;
+    }
+
+    function selectTag(btn, group) {
+        document.querySelectorAll(`#${group}-group .tag-select-btn`).forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedCategory = btn.textContent.trim();
+    }
+
+    function selectCondition(btn) {
+        document.querySelectorAll('.condition-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedConditionEl = btn;
+    }
+
+    function submitUpload() {
+        const name = document.getElementById('upload-name').value.trim();
+        const hub  = document.getElementById('upload-hub').value;
+        const size = document.getElementById('upload-size').value;
+        const condition = selectedConditionEl ? selectedConditionEl.querySelector('.cond-icon').nextSibling.textContent.trim() : null;
+
+        if (!uploadPhotoUrl) { alert('請先拍照或上傳圖片！'); return; }
+        if (!name)           { alert('請填寫衣物名稱！'); return; }
+        if (!selectedCategory){ alert('請選擇品項類型！'); return; }
+        if (!condition)      { alert('請選擇衣物狀況！'); return; }
+        if (!hub)            { alert('請選擇交換據點！'); return; }
+
+        const newId = Date.now();
+        const displayStatus = '上架中';
+        const displayTime = condition;
+
+        myUploadedItems.unshift({
+            id: newId,
+            name: name,
+            time: displayTime,
+            status: displayStatus,
+            img: uploadPhotoUrl,
+            size: size || '未標示',
+            hub: hub
+        });
+
+        closeUploadModal();
+        renderMyItems();
+        alert(`🎉 上架成功！\n「${name}」已出現在您的商品列表，\n並會顯示在${hub}附近的地圖上。`);
+    }
+    // ===== 上架表單 JS 結束 =====
+
+    // ===== 限量預購功能 JS =====
+    const preorderData = [
+        {
+            id: 1, status: 'open',
+            name: '浮世繪印花 Oversize Tee',
+            designer: 'Kura Studio', designerAvatar: 'https://ui-avatars.com/api/?name=KS&background=7c3aed&color=fff',
+            designerBio: '高雄在地插畫師，擅長東方美學與現代街頭的融合。',
+            img: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600&q=80',
+            price: 780, desc: '使用環保水性印染，與台灣在地工廠合作小批量生產。浮世繪圖案由設計師手繪後數位轉印，每件都是獨一無二的限量藝術品。',
+            current: 68, target: 100, sizes: ['S','M','L','XL'], deadline: '6/15', ship: '7月底',
+            tags: [{ text: '環保水性染', cls: 'tag-green' }, { text: '限量100件', cls: 'tag-purple' }, { text: '截止 6/15', cls: 'tag-orange' }]
+        },
+        {
+            id: 2, status: 'soon',
+            name: '解構不對稱西裝外套',
+            designer: 'MIRU Design', designerAvatar: 'https://ui-avatars.com/api/?name=MD&background=4f46e5&color=fff',
+            designerBio: '實驗性服裝設計師，MIRU 的作品常出現在台灣獨立時裝秀。',
+            img: 'cp3.png',
+            price: 2600, desc: '突破傳統西裝的對稱結構，單肩不對稱剪裁配合可拆式領片。台灣職人手工縫製，使用再生聚酯纖維布料，兼顧設計感與環保。',
+            current: 47, target: 50, sizes: ['XS','S','M','L'], deadline: '5/20', ship: '8月初',
+            tags: [{ text: '手工縫製', cls: 'tag-purple' }, { text: '再生布料', cls: 'tag-green' }, { text: '僅差3人！', cls: 'tag-orange' }]
+        },
+        {
+            id: 3, status: 'full',
+            name: '復古感重磅厚磅帽T',
+            designer: 'LOKO Collective', designerAvatar: 'https://ui-avatars.com/api/?name=LC&background=059669&color=fff',
+            designerBio: '由三位高雄青年創立的設計師品牌，主打台灣地方文化主題。',
+            img: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=600&q=80',
+            price: 1080, desc: '480g 重磅純棉，台南在地染廠特製復古洗色工法。正面印有手繪台灣廟會圖騰，已完成預購集資，正在生產中。',
+            current: 120, target: 120, sizes: ['S','M','L','XL','XXL'], deadline: '已截止', ship: '6月中',
+            tags: [{ text: '480g 重磅棉', cls: 'tag-purple' }, { text: '廟會圖騰', cls: 'tag-green' }, { text: '✅ 已達標生產中', cls: 'tag-orange' }]
+        },
+        {
+            id: 4, status: 'open',
+            name: '漸層紮染寬版長裙',
+            designer: 'SoftWave', designerAvatar: 'https://ui-avatars.com/api/?name=SW&background=db2777&color=fff',
+            designerBio: '專注於天然染色與手工藝的女性設計師品牌，每款均為限量製作。',
+            img: 'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=600&q=80',
+            price: 1350, desc: '採用天然植物染料手工紮染，每件色彩分布都略有不同，是真正的one-of-a-kind。使用台灣在地有機棉布料，支持永續時尚。',
+            current: 22, target: 80, sizes: ['Free Size'], deadline: '7/01', ship: '8月底',
+            tags: [{ text: '天然植物染', cls: 'tag-green' }, { text: '限量80件', cls: 'tag-purple' }, { text: '截止 7/01', cls: 'tag-orange' }]
+        }
+    ];
+
+    let currentFilter = 'all';
+    let currentDetailId = null;
+    let selectedSize = null;
+
+    function renderPreorderList(filter) {
+        const container = document.getElementById('preorder-list');
+        const items = filter === 'all' ? preorderData : preorderData.filter(p => p.status === filter);
+        if (items.length === 0) {
+            container.innerHTML = '<p style="text-align:center; color:var(--gray); padding:30px;">目前沒有符合條件的項目</p>';
+            return;
+        }
+        container.innerHTML = items.map(p => {
+            const pct = Math.round((p.current / p.target) * 100);
+            const isFull = p.status === 'full';
+            return `
+            <div class="preorder-card" onclick="openPreorderDetail(${p.id})">
+                <img src="${p.img}" alt="${p.name}" class="preorder-card-img">
+                <div class="preorder-card-body">
+                    <div class="preorder-designer"><i class="fas fa-palette"></i> ${p.designer}</div>
+                    <h3>${p.name}</h3>
+                    <div class="preorder-meta">${p.tags.map(t => `<span class="preorder-tag ${t.cls}">${t.text}</span>`).join('')}</div>
+                    <div class="preorder-progress-wrap">
+                        <div class="preorder-progress-label">
+                            <span>${p.current} / ${p.target} 人</span>
+                            <span class="highlight">${pct}%</span>
+                        </div>
+                        <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${Math.min(pct,100)}%"></div></div>
+                    </div>
+                    <div class="preorder-footer">
+                        <div>
+                            <div class="preorder-price">NT$ ${p.price.toLocaleString()} <span>/ 件</span></div>
+                            <div style="font-size:0.75rem; margin-top:3px; color:#10b981; display:flex; align-items:center; gap:3px;">
+                                <i class="fas fa-leaf"></i> 用 ${Math.round(p.price * 0.1)} 碳點折抵 → <b style="color:#059669;">NT$ ${Math.round(p.price * 0.9).toLocaleString()}</b>
+                            </div>
+                        </div>
+                        <button class="btn-preorder ${isFull ? 'full' : ''}" onclick="event.stopPropagation(); openPreorderDetail(${p.id})">${isFull ? '生產中' : '預購'}</button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function filterPreorder(filter, btn) {
+        currentFilter = filter;
+        document.querySelectorAll('.preorder-tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        renderPreorderList(filter);
+    }
+
+    function openPreorderDetail(id) {
+        const p = preorderData.find(x => x.id === id);
+        if (!p) return;
+        currentDetailId = id;
+        selectedSize = null;
+        const pct = Math.round((p.current / p.target) * 100);
+        const isFull = p.status === 'full';
+
+        document.getElementById('detail-title').innerText = p.name;
+        document.getElementById('detail-img').src = p.img;
+        document.getElementById('detail-name').innerText = p.name;
+        document.getElementById('detail-designer').innerHTML = `<i class="fas fa-palette"></i>&nbsp;${p.designer}`;
+        document.getElementById('detail-designer-box').innerHTML = `
+            <img src="${p.designerAvatar}" class="designer-avatar" alt="${p.designer}">
+            <div><h4>${p.designer}</h4><p>${p.designerBio}</p></div>`;
+        document.getElementById('detail-progress-text').innerText = `${p.current} / ${p.target} 人 (${pct}%)`;
+        document.getElementById('detail-progress-bar').style.width = Math.min(pct, 100) + '%';
+        document.getElementById('detail-desc').innerText = p.desc;
+        document.getElementById('detail-price').innerText = `NT$ ${p.price.toLocaleString()}`;
+        document.getElementById('detail-ship').innerText = p.ship;
+        document.getElementById('detail-sizes').innerHTML = p.sizes.map(s =>
+            `<button class="size-btn" onclick="selectSize(this, '${s}')">${s}</button>`).join('');
+
+        const btn = document.getElementById('detail-action-btn');
+        if (isFull) { btn.innerText = '已達標生產中'; btn.disabled = true; btn.style.background = '#9ca3af'; }
+        else { btn.innerText = '立即預購'; btn.disabled = false; btn.style.background = '#7c3aed'; }
+
+        document.getElementById('preorder-detail-modal').classList.add('open');
+        document.getElementById('bottom-nav').style.transform = 'translateY(100%)';
+    }
+
+    function closePreorderDetail() {
+        document.getElementById('preorder-detail-modal').classList.remove('open');
+        document.getElementById('bottom-nav').style.transform = 'translateY(0)';
+    }
+
+    function selectSize(btn, size) {
+        document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selectedSize = size;
+    }
+
+    function confirmPreorder() {
+        const p = preorderData.find(x => x.id === currentDetailId);
+        if (!selectedSize) { alert('請先選擇尺寸！'); return; }
+        if (confirm(`確認預購「${p.name}」\n尺寸：${selectedSize}\n金額：NT$ ${p.price.toLocaleString()}\n\n集滿 ${p.target} 人後才會正式生產，預計 ${p.ship} 出貨。`)) {
+            p.current = Math.min(p.current + 1, p.target);
+            alert(`🎉 預購成功！\n感謝支持 ${p.designer}！\n目前已有 ${p.current}/${p.target} 人預購。`);
+            closePreorderDetail();
+            renderPreorderList(currentFilter);
+        }
+    }
+    // ===== 限量預購功能 JS 結束 =====
+
+    function initMap() {
+        // 設定中心點為高雄市區
+        const userCenter = [22.627, 120.301]; 
+        map = L.map('map').setView(userCenter, 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+            maxZoom: 18, 
+            attribution: '© OpenStreetMap' 
+        }).addTo(map);
+
+        // 保持 3km 藍色搜尋範圍
+        L.circle(userCenter, { color: '#3b82f6', fillOpacity: 0.05, radius: 3000, weight: 1 }).addTo(map);
+
+        // 使用者位置藍標
+        const userIcon = L.divIcon({ className: 'user-marker', html: '<i class="fas fa-street-view"></i>', iconSize: [32, 32] });
+        L.marker(userCenter, { icon: userIcon }).bindPopup('<b>📍 你的當前位置</b>').addTo(map);
+
+        // 保持紅點樣式
+        const hubIcon = L.divIcon({ 
+            className: 'clothes-marker-privacy', 
+            html: '', 
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+        });
+
+        hubData.forEach(hub => {
+            // 保持每個據點周圍 300m 的紅色隱私範圍圈
+            L.circle([hub.lat, hub.lng], { 
+                color: '#ef4444', 
+                fillColor: '#fca5a5', 
+                fillOpacity: 0.3, 
+                weight: 1, 
+                radius: 300 
+            }).addTo(map);
+
+            const marker = L.marker([hub.lat, hub.lng], { icon: hubIcon }).addTo(map);
+            marker.bindPopup(`
+                <div class="map-popup">
+                    <span class="privacy-tag"><i class="fas fa-city"></i> 高雄認證社區站</span>
+                    <h4 style="margin-top:5px;">${hub.name}</h4>
+                    <p>目前有 <b>${hub.itemCount}</b> 件衣物</p>
+                    <div style="display:flex;gap:6px;margin-top:4px;">
+                        <button onclick="enterHub('${hub.name}')">進入據點瀏覽</button>
+                        <button onclick="openHubReport('${hub.name}', ${hub.itemCount})" style="background:#1d4ed8;">📊 本月報告</button>
+                    </div>
+                </div>
+            `);
+        });
+    }
+
+    window.enterHub = function(name) {
+        // 顯示瀏覽標籤並更新名稱
+        const label = document.getElementById('swipe-hub-label');
+        if(label) label.style.display = 'block';
+        
+        const hubNameSpan = document.getElementById('current-hub-name');
+        if(hubNameSpan) hubNameSpan.innerText = name;
+        
+        // 自動點擊底部「匹配」按鈕進行跳轉
+        document.querySelector('.nav-btn[data-target="view-match"]').click();
+    };
+
+    window.goToMatch = function() { document.querySelector('.nav-btn[data-target="view-match"]').click(); }
+
+    window.confirmExchange = function(btn, userName) {
+        btn.disabled = true;
+        btn.style.background = '#9ca3af';
+        btn.innerHTML = '<i class="fas fa-check"></i> 已送出確認';
+
+        // 我的狀態格改成已確認
+        const card = btn.closest('.item-info');
+        const myBox = card.querySelector('.item-info > div:nth-of-type(2) > div:first-child') 
+            || card.querySelectorAll('[style*="flex:1"]')[0];
+        if (myBox) {
+            myBox.style.background = '#ecfdf5';
+            myBox.style.borderColor = '#6ee7b7';
+            myBox.innerHTML = '<div style="color:#6b7280;margin-bottom:2px;">我</div><div style="color:#10b981;font-weight:bold;"><i class="fas fa-check-circle"></i> 已確認</div>';
+        }
+
+        // 提示變成「雙方已確認」
+        const tip = btn.nextElementSibling;
+        if (tip) {
+            tip.style.background = '#ecfdf5';
+            tip.style.color = '#065f46';
+            tip.style.borderRadius = '8px';
+            tip.style.padding = '6px 10px';
+            tip.innerHTML = '🎉 雙方皆已確認！碳點 <b>+5</b> 即將發放到你的帳戶';
+        }
+
+        setTimeout(() => {
+            currentPoints += 5;
+            updatePointsDisplay();
+            alert(`🎉 交換完成！\n與 ${userName} 的交換已雙方確認。\n\n+5 碳點已發放！`);
+        }, 600);
+    };
+
+    // ===== 社區報告 JS =====
+    window.openHubReport = function(name, itemCount) {
+        document.querySelector('.privacy-notice').style.display = 'none';
+        // 每個據點產生略不同的假數據，讓它看起來真實
+        const seed = name.charCodeAt(0) % 5;
+        const swapCount = itemCount * 3 + seed * 7 + 12;
+        const carbon = (swapCount * 2.3).toFixed(1);
+        const recycleRate = (78 + seed * 3) + '%';
+        const users = Math.round(swapCount * 0.6);
+        const trees = (swapCount * 2.3 / 18).toFixed(1);
+        const water = (swapCount * 2700).toLocaleString();
+        const car = Math.round(swapCount * 2.3 / 0.21);
+        const dispute = seed;
+        const rejectRate = (2.5 + seed * 0.4).toFixed(1);
+
+        // 品項分布
+        const topPct = 42 + seed; const outerPct = 28 - seed;
+        const botPct = 18 + seed; const accPct = 100 - topPct - outerPct - botPct;
+
+        document.getElementById('report-hub-name').innerText = name + ' · 月報';
+        document.getElementById('report-hub-title').innerText = name;
+        document.getElementById('report-swap-count').innerText = swapCount;
+        document.getElementById('report-carbon').innerText = carbon;
+        document.getElementById('report-recycle-rate').innerText = recycleRate;
+        document.getElementById('report-users').innerText = users;
+        document.getElementById('report-trees').innerText = trees;
+        document.getElementById('report-water').innerText = water;
+        document.getElementById('report-car').innerText = car.toLocaleString();
+        document.getElementById('report-dispute').innerText = dispute;
+        document.getElementById('report-reject-rate').innerText = rejectRate;
+
+        document.getElementById('bar-top').style.width = topPct + '%';
+        document.getElementById('bar-outer').style.width = outerPct + '%';
+        document.getElementById('bar-bottom').style.width = botPct + '%';
+        document.getElementById('bar-acc').style.width = accPct + '%';
+        document.getElementById('pct-top').innerText = topPct + '%';
+        document.getElementById('pct-outer').innerText = outerPct + '%';
+        document.getElementById('pct-bottom').innerText = botPct + '%';
+        document.getElementById('pct-acc').innerText = accPct + '%';
+
+        document.getElementById('hub-report-modal').classList.add('open');
+        document.getElementById('bottom-nav').style.transform = 'translateY(100%)';
+    };
+
+    function closeHubReport() {
+        document.getElementById('hub-report-modal').classList.remove('open');
+        document.getElementById('bottom-nav').style.transform = 'translateY(0)';
+        document.getElementById('hub-report-modal').scrollTop = 0;
+        document.querySelector('.privacy-notice').style.display = 'flex';
+    }
+    // ===== 社區報告 JS 結束 =====
+
+    function renderSwipeCards() {
+        const container = document.getElementById('swipe-container');
+        if (swipeQueue.length === 0) {
+            container.innerHTML = `
+                <div style="text-align:center; color:#9ca3af; padding: 20px;">
+                    <div style="font-size:3rem; margin-bottom:12px;">🎉</div>
+                    <h3 style="color:#374151; margin-bottom:6px;">附近都看完了！</h3>
+                    <p style="font-size:0.85rem;">稍後再來，或換個社區據點看看</p>
+                </div>`;
+            return;
+        }
+        const currentItem = swipeQueue[0];
+        const remaining = swipeQueue.length;
+        const expectedPoints = Math.max(5, Math.round(currentItem.distance * 10));
+        const co2 = (currentItem.distance * 2.3).toFixed(1);
+
+        // 衣物狀況對照
+        const condMap = ['全新','近全新','良好','使用過'];
+        const condColors = ['#10b981','#3b82f6','#f59e0b','#9ca3af'];
+        const condIdx = Math.floor(Math.random() * 3); // 簡單隨機，實際可綁資料
+
+        // 後面還有幾張的堆疊視覺
+        const stackCards = remaining > 1 ? `
+            <div style="position:absolute; width:92%; height:95%; background:white; border-radius:24px; box-shadow:0 4px 16px rgba(0,0,0,0.08); top:10px; left:50%; transform:translateX(-50%) rotate(2deg); z-index:-1;"></div>
+            ${remaining > 2 ? `<div style="position:absolute; width:92%; height:95%; background:white; border-radius:24px; box-shadow:0 4px 16px rgba(0,0,0,0.05); top:18px; left:50%; transform:translateX(-50%) rotate(-1.5deg); z-index:-2;"></div>` : ''}
+        ` : '';
+
+        container.innerHTML = `
+            ${stackCards}
+            <div class="tinder-card" id="active-card">
+                <img src="${currentItem.img}" alt="${currentItem.name}">
+                <div class="card-gradient"></div>
+
+                <div class="card-top-badges">
+                    <span class="card-queue-badge"><i class="fas fa-layer-group"></i> ${remaining} 件待瀏覽</span>
+                    <span class="card-condition-badge" style="color:${condColors[condIdx]};">● ${condMap[condIdx]}</span>
+                </div>
+
+                <div class="tinder-info">
+                    <div>
+                        <h2>${currentItem.name}</h2>
+                        <div class="tinder-meta-row">
+                            <span class="tinder-meta-tag" style="background:#f3f4f6; color:#374151;">
+                                <i class="far fa-clock"></i> ${currentItem.time}
+                            </span>
+                            <span class="tinder-meta-tag" style="background:#eff6ff; color:#1d4ed8;">
+                                <i class="fas fa-map-marker-alt"></i> ${currentItem.distance} km
+                            </span>
+                        </div>
+                    </div>
+                    <div class="tinder-carbon-bar">
+                        <div>
+                            <div style="font-size:0.72rem; color:#6b7280; margin-bottom:2px;">完成交換預計獲得</div>
+                            <div style="font-size:1rem; font-weight:bold; color:var(--primary);"><i class="fas fa-leaf"></i> +${expectedPoints} 碳點</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:0.72rem; color:#6b7280; margin-bottom:2px;">減少碳排</div>
+                            <div style="font-size:0.9rem; font-weight:bold; color:#059669;">-${co2} kg CO₂</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function handleSwipe(direction) {
+        if (swipeQueue.length === 0) return;
+        const card = document.getElementById('active-card');
+        const currentItem = swipeQueue[0];
+        card.style.transform = `translate(${direction === 'right' ? '150%' : '-150%'}, 0) rotate(${direction === 'right' ? '20deg' : '-20deg'})`;
+        card.style.opacity = '0';
+
+        setTimeout(() => {
+            if (direction === 'right') {
+                const earnedPoints = Math.max(5, Math.round(currentItem.distance * 10)); 
+                currentPoints += earnedPoints;
+                updatePointsDisplay(); 
+                alert(`✨ 匹配成功！\n♻️ 完成這筆遠距交換後，預計可獲得 ${earnedPoints} 碳點！`);
+            }
+            swipeQueue.shift();
+            renderSwipeCards();
+        }, 300);
+    }
+
+    // --- 底部導航切換 ---
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            e.currentTarget.classList.add('active');
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            
+            const targetId = e.currentTarget.getAttribute('data-target');
+            document.getElementById(targetId).classList.add('active');
+
+            const titles = { 'view-home': '探索周邊', 'view-match': '隨機匹配', 'view-preorder': '🎨 限量設計師預購', 'view-chat': '訊息匣', 'view-profile': '我的錢包與商品' };
+            document.getElementById('header-title').innerText = titles[targetId];
+
+            if(targetId === 'view-home') { setTimeout(() => { map.invalidateSize(); }, 100); }
+        });
+    });
+
+    // --- 聊天室控制 ---
+    function openChat(userName, itemName, itemImgUrl, points) {
+        document.getElementById('chat-user-name').innerText = userName;
+        document.getElementById('chat-item-name').innerText = itemName;
+        document.getElementById('chat-item-img').src = itemImgUrl;
+        document.getElementById('chat-item-points').innerText = '+' + points + ' 碳點';
+        document.getElementById('chat-room').classList.add('open');
+        document.getElementById('bottom-nav').style.transform = 'translateY(100%)';
+        const msgContainer = document.getElementById('chat-messages-container');
+        msgContainer.scrollTop = msgContainer.scrollHeight;
+    }
+
+    function closeChat() {
+        document.getElementById('chat-room').classList.remove('open');
+        document.getElementById('bottom-nav').style.transform = 'translateY(0)';
+    }
+
+    function sendMsg() {
+        const inputField = document.getElementById('chat-input-field');
+        const text = inputField.value.trim();
+        if (!text) return; 
+        const msgContainer = document.getElementById('chat-messages-container');
+        const now = new Date();
+        const timeString = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        const newMsg = document.createElement('div');
+        newMsg.className = 'msg sent';
+        newMsg.innerHTML = `<p>${text}</p><span class="time">${timeString}</span>`;
+        msgContainer.appendChild(newMsg);
+        inputField.value = '';
+        msgContainer.scrollTop = msgContainer.scrollHeight;
+    }
+
+    function handleKeyPress(e) { if (e.key === 'Enter') sendMsg(); }
+    
+    // 初始化執行
+    initMap();
+    renderSwipeCards();
+    updatePointsDisplay(); 
+    renderMyItems(); // 渲染我的上架商品
+    renderPreorderList('all'); // 渲染預購列表
+</script>
+
 </body>
 </html>
