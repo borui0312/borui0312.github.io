@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>左側交易抄底雷達</title>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <style>
+        /* ================= 現代化 UI 視覺設定 ================= */
+        body {
+            background-color: #f1f5f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex; justify-content: center; padding: 40px 20px; margin: 0; min-height: 100vh; color: #334155;
+        }
+        .container { width: 100%; max-width: 1480px; background-color: white; padding: 20px 20px 20px 20px;}
+        
+        /* ================= 系統導覽列與側邊欄 ================= */
+        .app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #e2e8f0; }
+        .capsule-nav { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px; }
+        .capsule { text-decoration: none; color: #64748b; background-color: #e2e8f0; padding: 8px 18px; border-radius: 20px; font-size: 14px; font-weight: bold; transition: all 0.2s; white-space: nowrap; }
+        .capsule:hover { background-color: #cbd5e1; }
+        .capsule.active { background-color: #10b981; color: white; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3); } 
+        .hamburger-btn { background: none; border: none; font-size: 28px; cursor: pointer; color: #334155; padding: 0 10px; }
+
+        .sidebar { position: fixed; top: 0; right: -300px; width: 260px; height: 100vh; background: white; box-shadow: -5px 0 15px rgba(0,0,0,0.1); z-index: 1000; transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1); padding: 20px; box-sizing: border-box; overflow-y: auto; display: flex; flex-direction: column; }
+        .sidebar.open { right: 0; }
+        .sidebar-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 15px; }
+        .sidebar-header h3 { margin: 0; font-size: 18px; color: #1e293b; font-weight: 800; }
+        .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #94a3b8; }
+        .sidebar-menu { list-style: none; padding: 0; margin: 0; flex: 1; margin-bottom: 20px; }
+        .menu-category { font-size: 12px; color: #94a3b8; font-weight: bold; margin-top: 20px; margin-bottom: 8px; text-transform: uppercase; }
+        .sidebar-menu li a { display: block; text-decoration: none; color: #475569; padding: 10px 12px; border-radius: 8px; font-size: 15px; transition: 0.2s; font-weight: 600; }
+        .sidebar-menu li a:hover { background-color: #f1f5f9; color: #10b981; }
+        .sidebar-menu li a.active { background-color: #ecfdf5; color: #10b981; font-weight: bold; }
+        
+        #sidebar-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.4); z-index: 999; }
+        #sidebar-overlay.show { display: block; }
+        
+        .sidebar-footer { padding-top: 15px; display: flex; justify-content: flex-end; padding-right: 5px; }
+        .theme-btn { width: 48px; height: 48px; padding: 0; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 22px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); transition: transform 0.2s, background 0.3s; cursor: pointer; background: #fff; border: 1px solid #cbd5e1; color: #334155; }
+        .theme-btn:hover { transform: scale(1.1); }
+
+        /* ================= 雷達主體 UI 設計 ================= */
+        h2 { text-align: center; color: #1e293b; margin-top: 5px; margin-bottom: 20px; font-weight: 800; font-size: 28px; letter-spacing: 1px; }
+
+        /* 自選清單分頁 (Watchlist Tabs) */
+        .watchlist-container { display: flex; gap: 8px; overflow-x: auto; align-items: flex-end; margin-bottom: -2px; padding: 0 10px; z-index: 10; position: relative; }
+        .wl-tab {
+            padding: 10px 22px; background: #e2e8f0; color: #64748b; border-radius: 12px 12px 0 0;
+            border: 2px solid transparent; border-bottom: none; font-weight: bold; cursor: grab; 
+            transition: all 0.2s; font-size: 15px; display: flex; align-items: center; gap: 10px;
+        }
+        .wl-tab:active { cursor: grabbing; } 
+        .wl-tab:hover { background: #cbd5e1; color: #334155; }
+        .wl-tab.active { background: #ffffff; color: #10b981; border-color: #10b981; border-bottom: 3px solid #ffffff; padding-top: 12px; cursor: default; }
+        .tab-name { user-select: none; }
+        .tab-del-btn { color: #94a3b8; font-size: 15px; cursor: pointer; padding: 2px 6px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
+        .tab-del-btn:hover { background-color: #fee2e2; color: #ef4444; }
+        .wl-add-btn { padding: 9px 16px; background: transparent; color: #94a3b8; margin-bottom: 2px; border: 2px dashed #cbd5e1; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.2s; }
+        .wl-add-btn:hover { color: #10b981; border-color: #10b981; background: #f8fafc; }
+        .tab-ghost { opacity: 0.5; background-color: #d1fae5 !important; border-color: #10b981 !important; }
+
+        /* 頂部輸入卡片 */
+        .input-card {
+            background: #ffffff; padding: 20px 30px; border-radius: 0 16px 16px 16px; 
+            border-top-left-radius: 0; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); 
+            display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap; 
+            margin-bottom: 30px; position: relative; border: 2px solid #10b981; border-right: none; border-bottom: none;
+        }
+        .input-group { display: flex; align-items: center; gap: 10px; }
+        .input-group label { font-weight: 600; color: #475569; font-size: 15px; margin: 0; }
+        
+        .input-card input[type="text"], .input-card input[type="number"], .filter-select { padding: 10px 15px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 15px; transition: 0.2s; background-color: #f8fafc; color: #334155; }
+        .filter-select { min-width: 130px; font-weight: bold; cursor: pointer; outline: none; }
+        .search-input { width: 180px; font-weight: bold; border: 1px dashed #cbd5e1 !important;}
+        #target_code { width: 150px; } 
+        .input-card input:focus, .filter-select:focus { outline: none; border-color: #10b981; background-color: #ffffff; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15); }
+
+        .btn-add { padding: 11px 24px; background-color: #10b981; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-add:hover { background-color: #059669; }
+        .btn-add:active { transform: scale(0.98); }
+        .btn-del { padding: 6px 14px; background-color: #fee2e2; color: #ef4444; border: none; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-del:hover { background-color: #fca5a5; color: #b91c1c; }
+        .loading-text { font-size: 14px; color: #64748b; font-weight: 500; min-width: 150px;}
+
+        /* ================= 表格卡片設計 ================= */
+        .table-wrapper { background: #ffffff; border-radius: 16px; border-top-left-radius: 0; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); overflow-x: auto; position: relative; z-index: 5; }
+        table { width: 100%; border-collapse: collapse; text-align: center; white-space: nowrap; }
+        th { background-color: #f8fafc; color: #64748b; font-weight: 600; font-size: 13px; padding: 16px 8px; border-bottom: 2px solid #e2e8f0; text-align: center; border-top-right-radius: 16px; transition: 0.2s; }
+        th:first-child { border-top-left-radius: 0; }
+        td { padding: 14px 6px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; text-align: center; }
+        tbody tr:hover { background-color: #f8fafc; }
+        .th-highlight, .th-inventory { background-color: #eff6ff; color: #1d4ed8; }
+
+        .sortable-header { cursor: pointer; user-select: none; position: relative; padding-right: 25px !important; }
+        .sortable-header:hover { background-color: #dbeafe; } 
+        .sort-icon { font-size: 14px; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); }
+
+        .drag-handle { cursor: grab; font-size: 20px; color: #cbd5e1; user-select: none; transition: 0.2s; padding: 0 10px !important; font-weight: bold; }
+        .drag-handle:hover { color: #3b82f6; }
+        .drag-handle:active { cursor: grabbing; color: #1d4ed8; }
+        .sortable-ghost { opacity: 0.4; background-color: #e0f2fe !important; }
+
+        .col-code { font-size: 16px; font-weight: 900; color: #0f172a; }
+        .col-input-box input { width: 80px; padding: 6px 8px; text-align: center; font-weight: bold; font-size: 14.5px; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 6px; background-color: #f8fafc; transition: 0.2s; }
+        .col-input-box input::placeholder { color: #cbd5e1; font-weight: normal; }
+        .col-input-box input:focus { outline: none; border-color: #3b82f6; background-color: #ffffff; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+        
+        .col-name input, .col-tags input { width: 85px; font-size: 13.5px; font-weight: 600; color: #475569; border: 1px dashed #cbd5e1; }
+        .col-tags input { color: #0284c7; background-color: #f0f9ff; } 
+        .col-high-price input { background-color: #fff1f2; border-color: #fecdd3; color: #e11d48; }
+        .col-high-price input:focus { border-color: #e11d48; box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.15); }
+
+        .col-current-drop { font-size: 16px; font-weight: 900; }
+        .drop-mild { color: #f59e0b; } .drop-deep { color: #10b981; } .drop-extreme { color: #3b82f6; } .drop-reset { color: #94a3b8; font-size: 13px; font-weight: normal; } 
+
+        .target-price { color: #94a3b8; font-size: 14.5px; font-weight: 600; cursor: pointer; border-radius: 6px; transition: all 0.2s ease; position: relative; width: 65px; min-width: 65px; max-width: 65px; box-sizing: border-box; }
+        .target-price:hover { background-color: #e2e8f0; color: #334155; }
+        .target-price.active { background-color: #10b981; color: #ffffff !important; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1), 0 2px 4px rgba(16, 185, 129, 0.3); }
+        .sub-text { font-size: 11px; color: #94a3b8; font-weight: normal; }
+
+        /* ================= 黑夜模式適配 (Dark Theme) ================= */
+        body.dark-theme { background-color: #121212; color: #e0e0e0; }
+        body.dark-theme h2 { color: #f8fafc; }
+        
+        body.dark-theme .wl-tab { background: #1e293b; color: #94a3b8; border-color: transparent; }
+        body.dark-theme .wl-tab:hover { background: #334155; color: #f8fafc; }
+        body.dark-theme .wl-tab.active { background: #0f172a; color: #10b981; border-color: #10b981; border-bottom-color: #0f172a; }
+        body.dark-theme .wl-add-btn { border-color: #475569; color: #94a3b8; }
+        body.dark-theme .wl-add-btn:hover { color: #10b981; border-color: #10b981; background: #1e293b; }
+        body.dark-theme .tab-del-btn:hover { background: #450a0a; color: #fca5a5; }
+
+        body.dark-theme .input-card, body.dark-theme .table-wrapper { background-color: #0f172a; box-shadow: none; border-color: #10b981; }
+        body.dark-theme table th { background-color: #1e293b; color: #94a3b8; border-bottom-color: #334155; }
+        body.dark-theme table td { border-bottom-color: #1e293b; }
+        body.dark-theme tbody tr:hover { background-color: #1e293b; }
+        body.dark-theme .th-highlight, body.dark-theme .th-inventory { background-color: #1e3a8a; color: #93c5fd; }
+        body.dark-theme .sortable-header:hover { background-color: #334155; }
+        
+        body.dark-theme .col-input-box input, body.dark-theme .filter-select, body.dark-theme .input-card input[type="text"] { background-color: #1e293b; color: #f8fafc; border-color: #475569; }
+        body.dark-theme .col-name input { border-color: #64748b; color: #e2e8f0; }
+        body.dark-theme .col-tags input { background-color: #1e3a8a; color: #bfdbfe; border-color: #3b82f6; }
+        body.dark-theme .col-high-price input { background-color: #4c1d95; color: #fca5a5; border-color: #9f1239; }
+        body.dark-theme .col-code { color: #f8fafc; }
+        body.dark-theme .target-price:hover { background-color: #334155; color: #f8fafc; }
+        body.dark-theme .target-price { color: #64748b; }
+        
+        body.dark-theme .app-header { border-bottom-color: #334155; }
+        body.dark-theme .capsule { background-color: #334155; color: #cbd5e1; }
+        body.dark-theme .capsule:hover { background-color: #475569; }
+        body.dark-theme .capsule.active { background-color: #10b981; color: #fff; }
+        body.dark-theme .hamburger-btn { color: #f8fafc; }
+        body.dark-theme .sidebar { background: #1e293b; box-shadow: -5px 0 15px rgba(0,0,0,0.5); }
+        body.dark-theme .sidebar-header { border-bottom-color: #334155; }
+        body.dark-theme .sidebar-header h3 { color: #f8fafc; }
+        body.dark-theme .sidebar-menu li a { color: #cbd5e1; }
+        body.dark-theme .sidebar-menu li a:hover { background-color: #334155; color: #10b981; }
+        body.dark-theme .sidebar-menu li a.active { background-color: #064e3b; color: #10b981; }
+        body.dark-theme .theme-btn { background: #334155; border-color: #475569; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🎯 左側交易抄底雷達</h2>
+    
+    <div class="watchlist-container" id="watchlist-tabs"></div>
+
+    <div class="input-card">
+        <div class="input-group">
+            <label>🏷️ 標籤篩選</label>
+            <select id="category_filter" class="filter-select" onchange="renderRadar()">
+                <option value="ALL">全部標籤</option>
+            </select>
+        </div>
+        <div style="width: 1px; height: 30px; background: #e2e8f0; margin: 0 5px;"></div>
+        
+        <div class="input-group">
+            <label>🔍 快速搜尋</label>
+            <input type="text" id="search_filter" class="search-input" placeholder="名稱、代號、標籤..." oninput="renderRadar()">
+        </div>
+        <div style="width: 1px; height: 30px; background: #e2e8f0; margin: 0 5px;"></div>
+        
+        <div class="input-group">
+            <label>➕ 新增標的</label>
+            <input type="text" id="target_code" placeholder="如: 0050 & 0052">
+        </div>
+        <button class="btn-add" onclick="addTarget()">＋ 加入清單</button>
+        <span id="loading_status" class="loading-text">🔄 正在連接雲端資料庫...</span>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th></th> 
+                    <th>中文名稱</th>
+                    <th>代號</th>
+                    <th>歷史最高價<br><span class="sub-text">(可修改分割)</span></th>
+                    <th class="th-inventory">庫存均價</th>
+                    <th class="th-highlight">手動輸入現價</th>
+                    <th class="th-highlight sortable-header" onclick="toggleSortMode()" title="點擊切換排序方式">
+                        目前跌幅 % <span id="sort-icon" class="sort-icon">↕️</span>
+                    </th>
+                    <th>-5%</th><th>-10%</th><th>-15%</th><th>-20%</th><th>-25%</th><th>-30%</th><th>-40%</th><th>-50%</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="radar-list">
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script type="module">
+    // 1. 載入 Firebase 核心與 Firestore (使用 v10 模組化 SDK)
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // ================= Firebase 初始化 =================
+    // ⚠️ 記得把這裡替換成你在 Firebase Console 裡取得的真實設定！
+    const firebaseConfig = {
+        apiKey: "AIzaSyDgPOd7yPZE7TxFBVxXGrDtbGuQGCrpkxI",
+        authDomain: "invest-122b1.firebaseapp.com",
+        projectId: "invest-122b1",
+        storageBucket: "invest-122b1.firebasestorage.app",
+        messagingSenderId: "377833241879",
+        appId: "1:377833241879:web:34255f62bf25d53f644b52",
+        measurementId: "G-VL0JRTZN49"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    
+    // 如果未來導入 Firebase Auth，可以將 "default_user_doc" 換成使用者的 UID
+    const USER_DOC_ID = "default_user_doc"; 
+    const userDocRef = doc(db, "radar_data", USER_DOC_ID);
+
+    // ================= 資料結構 =================
+    let watchlists = [{ id: 'wl-1', name: '自選清單 1' }];
+    let customSortOrder = { 'wl-1': [] };
+    let radarData = [];
+    
+    // 介面狀態保留在 localStorage
+    let activeWlId = localStorage.getItem("activeWlId") || 'wl-1';
+    let currentSortMode = 'custom';
+
+    // ================= 初始啟動流程 =================
+    async function initApp() {
+        initTheme();
+        await fetchFirebaseData(); // 先從雲端抓資料
+        
+        // 如果 localStorage 中儲存的活躍清單不存在於雲端資料中，強制切換回第一筆
+        if (!watchlists.find(w => w.id === activeWlId) && watchlists.length > 0) {
+            activeWlId = watchlists[0].id;
+            localStorage.setItem("activeWlId", activeWlId);
+        }
+
+        renderTabs();
+        updateCategoryDropdown();
+        await initRefresh(); // 更新報價
+        initSortable();
+        initTabSortable();
+    }
+
+    // ================= Firebase 讀寫邏輯 =================
+    async function fetchFirebaseData() {
+        try {
+            const docSnap = await getDoc(userDocRef);
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                watchlists = data.watchlists || [{ id: 'wl-1', name: '自選清單 1' }];
+                
+                let rawSort = data.customSortOrder || {};
+                customSortOrder = Array.isArray(rawSort) ? { 'wl-1': rawSort } : rawSort;
+                
+                let rawData = data.radarData || [];
+                radarData = rawData.map(d => ({
+                    ...d,
+                    name: d.name !== undefined ? d.name : (d.category || ""),
+                    tags: d.tags || "",
+                    watchlistId: d.watchlistId || 'wl-1' 
+                }));
+                radarData.forEach(d => { delete d.category; });
+            }
+        } catch (error) {
+            console.error("載入雲端資料失敗:", error);
+            document.getElementById("loading_status").innerText = "⚠️ 雲端資料載入失敗，請檢查網路或資料庫權限";
+        }
+    }
+
+    // ================= 網頁防誤關機制 =================
+    // 建立一個變數來追蹤目前是否正在跟雲端通訊
+    let isSaving = false;
+
+    // 監聽瀏覽器關閉或重新整理事件
+    window.addEventListener('beforeunload', (event) => {
+        // 如果 isSaving 是 true，就攔截關閉動作
+        if (isSaving) {
+            event.preventDefault();
+            // 觸發瀏覽器內建的「您確定要離開網站嗎？系統可能不會儲存您所做的變更」警告視窗
+            event.returnValue = ''; 
+        }
+    });
+
+    // ================= 更新後的 saveData 函式 =================
+    async function saveData() {
+        try {
+            isSaving = true; // 開始寫入，鎖定網頁
+            let status = document.getElementById("loading_status");
+            status.innerText = "⏳ 雲端同步中，請勿關閉網頁...";
+            
+            // 濾掉可能導致 Firebase 報錯的 undefined 值
+            const cleanWatchlists = JSON.parse(JSON.stringify(watchlists));
+            const cleanRadarData = JSON.parse(JSON.stringify(radarData));
+            const cleanSortOrder = JSON.parse(JSON.stringify(customSortOrder));
+
+            await setDoc(userDocRef, {
+                watchlists: cleanWatchlists,
+                radarData: cleanRadarData,
+                customSortOrder: cleanSortOrder
+            }, { merge: true });
+            
+            status.innerText = "✅ 雲端同步完成！";
+            
+            // 2秒後清除提示文字 (如果途中沒有被其他動作覆蓋的話)
+            setTimeout(() => {
+                if(status.innerText === "✅ 雲端同步完成！") status.innerText = "";
+            }, 2000);
+
+        } catch (error) {
+            console.error("🔥 寫入 Firebase 失敗:", error);
+            document.getElementById("loading_status").innerText = "⚠️ 雲端儲存失敗，請檢查網路";
+        } finally {
+            isSaving = false; // 不論成功或失敗，都解除網頁鎖定
+        }
+    }
+
+
+    // ================= 導覽列與主題切換 =================
+    function initTheme() { let isDark = localStorage.getItem('darkTheme') === 'true'; if (isDark) { document.body.classList.add('dark-theme'); } }
+
+    // ================= 自選清單分頁控制 =================
+    function renderTabs() {
+        let container = document.getElementById("watchlist-tabs");
+        container.innerHTML = "";
+        
+        watchlists.forEach(wl => {
+            let isActive = wl.id === activeWlId ? "active" : "";
+            let delBtnHtml = watchlists.length > 1 ? `<span class="tab-del-btn" title="刪除清單" onclick="deleteTab('${wl.id}', event)">✕</span>` : '';
+            container.innerHTML += `
+                <div class="wl-tab ${isActive}" data-id="${wl.id}" onclick="switchTab('${wl.id}')" title="文字點兩下可改名，按住可拖曳排序">
+                    <span class="tab-name" ondblclick="renameTab('${wl.id}')">${wl.name}</span>
+                    ${delBtnHtml}
+                </div>
+            `;
+        });
+        container.innerHTML += `<button class="wl-add-btn" title="新增自選清單" onclick="addTab()">＋ 新增</button>`;
+    }
+
+    function initTabSortable() {
+        let tabContainer = document.getElementById('watchlist-tabs');
+        new Sortable(tabContainer, {
+            animation: 150, filter: '.wl-add-btn', draggable: '.wl-tab', ghostClass: 'tab-ghost',
+            onEnd: function (evt) {
+                let newWatchlists = [];
+                let tabs = tabContainer.querySelectorAll('.wl-tab');
+                tabs.forEach(tab => {
+                    let id = tab.dataset.id; let wl = watchlists.find(w => w.id === id); if(wl) newWatchlists.push(wl);
+                });
+                watchlists = newWatchlists; saveData();
+            }
+        });
+    }
+
+    function switchTab(id) {
+        if (activeWlId === id) return; 
+        activeWlId = id; localStorage.setItem("activeWlId", id);
+        document.getElementById("search_filter").value = ""; document.getElementById("category_filter").value = "ALL";
+        currentSortMode = 'custom'; 
+        
+        document.querySelectorAll('.wl-tab').forEach(tab => {
+            if(tab.dataset.id === id) tab.classList.add('active'); else tab.classList.remove('active');
+        });
+        updateCategoryDropdown(); renderRadar();
+    }
+
+    function addTab() {
+        let name = prompt("請輸入新自選清單的名稱：", `自選清單 ${watchlists.length + 1}`);
+        if (!name || name.trim() === "") return;
+        let newId = 'wl-' + Date.now(); watchlists.push({ id: newId, name: name.trim() });
+        customSortOrder[newId] = []; saveData(); renderTabs(); switchTab(newId);
+    }
+
+    function renameTab(id) {
+        let wl = watchlists.find(w => w.id === id); if (!wl) return;
+        let newName = prompt("請輸入新的名稱：", wl.name);
+        if (newName && newName.trim() !== "") { wl.name = newName.trim(); saveData(); renderTabs(); }
+    }
+
+    function deleteTab(id, event) {
+        event.stopPropagation(); if (watchlists.length <= 1) return;
+        if (confirm("確定要刪除整個清單及裡面的標的追蹤嗎？")) {
+            watchlists = watchlists.filter(w => w.id !== id); radarData = radarData.filter(d => d.watchlistId !== id); delete customSortOrder[id];
+            if (activeWlId === id) { activeWlId = watchlists[0].id; localStorage.setItem("activeWlId", activeWlId); }
+            saveData(); renderTabs(); updateCategoryDropdown(); renderRadar();
+        }
+    }
+
+    // ================= 下拉標籤過濾器 =================
+    function updateCategoryDropdown() {
+        let filterSelect = document.getElementById("category_filter"); if (!filterSelect) return;
+        let currentFilter = filterSelect.value;
+        let currentWlData = radarData.filter(d => d.watchlistId === activeWlId);
+        
+        let allExplodedTags = [];
+        currentWlData.forEach(d => {
+            if (d.tags && d.tags.trim() !== "") {
+                let pieces = d.tags.split(/[\s,，#\/]+/);
+                pieces.forEach(p => {
+                    let cleaned = p.trim();
+                    if (cleaned !== "") allExplodedTags.push(cleaned);
+                });
+            }
+        });
+        
+        let uniqueTags = [...new Set(allExplodedTags)].sort();
+        let optionsHtml = `<option value="ALL">全部標籤</option>`;
+        uniqueTags.forEach(tag => { optionsHtml += `<option value="${tag}">${tag}</option>`; });
+        filterSelect.innerHTML = optionsHtml;
+        if (uniqueTags.includes(currentFilter) || currentFilter === "ALL") filterSelect.value = currentFilter; else filterSelect.value = "ALL";
+    }
+
+    // ================= 核心邏輯 =================
+    function toggleSortMode() {
+        if (currentSortMode === 'custom') currentSortMode = 'drop_desc';
+        else if (currentSortMode === 'drop_desc') currentSortMode = 'drop_asc';
+        else currentSortMode = 'custom';
+        renderRadar();
+    }
+
+    function getDropPercent(target) {
+        let effectiveHigh = target.customHighPrice > 0 ? target.customHighPrice : target.highPrice;
+        if (!effectiveHigh || !target.manualPrice) return 0;
+        if (target.manualPrice >= effectiveHigh) return 0; 
+        return ((effectiveHigh - target.manualPrice) / effectiveHigh) * 100;
+    }
+
+    function initSortable() {
+        let tbody = document.getElementById('radar-list');
+        new Sortable(tbody, {
+            handle: '.drag-handle', animation: 150, ghostClass: 'sortable-ghost',
+            onEnd: function () {
+                let searchVal = document.getElementById("search_filter").value.trim();
+                let tagVal = document.getElementById("category_filter").value;
+                if (searchVal === "" && tagVal === "ALL") { 
+                    let rows = Array.from(tbody.querySelectorAll('.radar-row'));
+                    customSortOrder[activeWlId] = rows.map(row => row.dataset.code);
+                    saveData();
+                    
+                    if (currentSortMode !== 'custom') {
+                        currentSortMode = 'custom';
+                        renderRadar();
+                    }
+                }
+            }
+        });
+    }
+
+    async function initRefresh() {
+        if (radarData.length === 0) { renderRadar(); document.getElementById("loading_status").innerText = ""; return; }
+        let status = document.getElementById("loading_status"); status.innerText = "🔄 報價更新中...";
+        let uniqueCodes = [...new Set(radarData.map(d => d.code))];
+        let fetchPromises = uniqueCodes.map(async (code) => {
+            let stockData = await fetchStockData(code);
+            if (stockData) {
+                radarData.filter(d => d.code === code).forEach(target => {
+                    if (!target.customHighPrice) target.highPrice = stockData.maxPrice;
+                    target.manualPrice = stockData.latestClose; checkAndResetLights(target);
+                });
+            }
+        });
+        await Promise.all(fetchPromises); saveData(); renderRadar();
+        status.innerText = "✅ 報價已全數更新！"; setTimeout(() => status.innerText = "", 2000);
+    }
+
+    async function addTarget() {
+        let codeInput = document.getElementById("target_code"); let status = document.getElementById("loading_status");
+        let rawTokens = codeInput.value.toUpperCase().split(/[\s,&\+]+/); let codes = rawTokens.map(c => c.trim()).filter(c => c !== "");
+        if (codes.length === 0) return;
+        let newCodes = codes.filter(code => !radarData.some(d => d.code === code && d.watchlistId === activeWlId));
+        if (newCodes.length === 0) { alert("輸入的標的都已經存在於目前的自選清單中了！"); return; }
+        status.innerText = `🔄 正在批次抓取 ${newCodes.join(', ')}...`; codeInput.disabled = true;
+
+        let fetchPromises = newCodes.map(async (code) => { let stockData = await fetchStockData(code); return { code, stockData }; });
+        let results = await Promise.all(fetchPromises); codeInput.disabled = false;
+        let successCount = 0; let failCodes = [];
+
+        results.forEach(res => {
+            if (res.stockData) {
+                let existingStock = radarData.find(d => d.code === res.code);
+                radarData.push({
+                    watchlistId: activeWlId, code: res.code,
+                    name: existingStock ? existingStock.name : "", tags: existingStock ? existingStock.tags : "", 
+                    highPrice: res.stockData.maxPrice, customHighPrice: existingStock ? existingStock.customHighPrice : "", 
+                    manualPrice: res.stockData.latestClose, avgPrice: existingStock ? existingStock.avgPrice : "", 
+                    lightedLevels: existingStock && existingStock.lightedLevels ? [...existingStock.lightedLevels] : []    
+                });
+                if (!customSortOrder[activeWlId]) customSortOrder[activeWlId] = [];
+                if (!customSortOrder[activeWlId].includes(res.code)) customSortOrder[activeWlId].push(res.code);
+                successCount++;
+            } else { failCodes.push(res.code); }
+        });
+        
+        saveData(); updateCategoryDropdown(); renderRadar(); codeInput.value = "";
+        if (failCodes.length > 0) { status.innerText = `⚠️ 成功加入 ${successCount} 檔，失敗: ${failCodes.join(', ')}`; setTimeout(() => status.innerText = "", 4000); } 
+        else { status.innerText = `✅ 成功加入 ${successCount} 檔標的！`; setTimeout(() => status.innerText = "", 2000); }
+    }
+
+    async function fetchStockData(code) {
+        let today = new Date(); let threeYearsAgo = new Date(today); threeYearsAgo.setFullYear(today.getFullYear() - 3);
+        let y1 = threeYearsAgo.getFullYear(), m1 = String(threeYearsAgo.getMonth()+1).padStart(2,'0'), d1 = String(threeYearsAgo.getDate()).padStart(2,'0');
+        let y2 = today.getFullYear(), m2 = String(today.getMonth()+1).padStart(2,'0'), d2 = String(today.getDate()).padStart(2,'0');
+        let dataset = (code === 'TAIEX' || code === '^TWII') ? 'TaiwanStockPrice' : (!/[0-9]/.test(code) ? 'USStockPrice' : 'TaiwanStockPrice');
+        let url = `https://api.finmindtrade.com/api/v4/data?dataset=${dataset}&data_id=${code}&start_date=${y1}-${m1}-${d1}&end_date=${y2}-${m2}-${d2}`;
+        try {
+            let res = await fetch(url); let result = await res.json();
+            if (result.data && result.data.length > 0) {
+                let maxPrice = Math.max(...result.data.map(d => d.max || d.High));
+                let latestClose = result.data[result.data.length - 1].close || result.data[result.data.length - 1].Close;
+                return { maxPrice: maxPrice, latestClose: latestClose };
+            }
+        } catch(e) { console.error("API 錯誤:", e); } return null;
+    }
+
+    function updateField(code, field, value) {
+        let targets = radarData.filter(d => d.code === code);
+        targets.forEach(target => {
+            if (field === "name" || field === "tags") { target[field] = value.trim(); } 
+            else if (field === "customHighPrice" || field === "manualPrice") { target[field] = value === "" ? "" : parseFloat(value); checkAndResetLights(target); } 
+            else if (field === "avgPrice") { target.avgPrice = value; }
+        });
+        saveData();
+        let activeTarget = targets.find(d => d.watchlistId === activeWlId);
+        if (activeTarget && (field === "customHighPrice" || field === "manualPrice")) { updateRowUI(activeTarget); } 
+        else if (field === "name" || field === "tags" || field === "avgPrice") { if (field === "tags") updateCategoryDropdown(); renderRadar(); }
+    }
+
+    function updateRowUI(target) {
+        let dropCell = document.getElementById(`drop-${target.code}`); if (!dropCell) return;
+        let effectiveHigh = target.customHighPrice > 0 ? target.customHighPrice : target.highPrice;
+        let isNewHigh = false; let dropHtml = "-";
+        
+        if (target.manualPrice > 0 && effectiveHigh > 0) {
+            if (target.manualPrice >= effectiveHigh) { dropHtml = `<span class="drop-reset">創高重置中</span>`; isNewHigh = true; } 
+            else {
+                let dropPercentNum = ((effectiveHigh - target.manualPrice) / effectiveHigh) * 100; let formattedDrop = dropPercentNum.toFixed(2);
+                let colorClass = dropPercentNum >= 30 ? "drop-extreme" : (dropPercentNum >= 15 ? "drop-deep" : "drop-mild");
+                dropHtml = `<span class="${colorClass}">-${formattedDrop}%</span>`;
+            }
+        }
+        dropCell.innerHTML = dropHtml;
+        
+        let levels = [5, 10, 15, 20, 25, 30, 40, 50];
+        levels.forEach(lv => {
+            let tpCell = document.getElementById(`tp-${lv}-${target.code}`);
+            if (tpCell) {
+                let priceValue = (effectiveHigh * (1 - lv/100)).toFixed(1); tpCell.innerText = priceValue; 
+                if (isNewHigh) {
+                    tpCell.style.opacity = "0.3"; tpCell.style.cursor = "not-allowed"; tpCell.onclick = null; tpCell.className = "target-price";
+                } else {
+                    tpCell.style.opacity = "1"; tpCell.style.cursor = "pointer"; tpCell.onclick = function() { toggleLight(target.code, lv, this); };
+                    tpCell.className = target.lightedLevels && target.lightedLevels.includes(lv) ? "target-price active" : "target-price";
+                }
+            }
+        });
+    }
+
+    function checkAndResetLights(target) {
+        let effectiveHigh = target.customHighPrice > 0 ? target.customHighPrice : target.highPrice;
+        if (target.manualPrice >= effectiveHigh && target.lightedLevels && target.lightedLevels.length > 0) target.lightedLevels = [];
+    }
+
+    function toggleLight(code, level, element) {
+        let targets = radarData.filter(d => d.code === code); let activeTarget = targets.find(d => d.watchlistId === activeWlId); if (!activeTarget) return;
+        let willAdd = !(activeTarget.lightedLevels || []).includes(level);
+        let effectiveHigh = activeTarget.customHighPrice > 0 ? activeTarget.customHighPrice : activeTarget.highPrice;
+        if (willAdd && activeTarget.manualPrice >= effectiveHigh) { alert("目前已創歷史新高，無需執行抄底加碼。"); return; }
+
+        targets.forEach(target => {
+            if (!target.lightedLevels) target.lightedLevels = [];
+            let idx = target.lightedLevels.indexOf(level);
+            if (willAdd && idx === -1) target.lightedLevels.push(level); else if (!willAdd && idx > -1) target.lightedLevels.splice(idx, 1);
+        });
+
+        if (willAdd) element.classList.add('active'); else element.classList.remove('active');
+        saveData();
+    }
+
+    function removeTarget(code) {
+        if(confirm(`確定要從此清單移除 ${code} 嗎？`)) {
+            radarData = radarData.filter(d => !(d.code === code && d.watchlistId === activeWlId));
+            if (customSortOrder[activeWlId]) { customSortOrder[activeWlId] = customSortOrder[activeWlId].filter(c => c !== code); }
+            saveData(); updateCategoryDropdown(); renderRadar();
+        }
+    }
+
+    function renderRadar() {
+        let tbody = document.getElementById("radar-list");
+        tbody.innerHTML = "";
+        
+        let sortIcon = document.getElementById("sort-icon");
+        if (sortIcon) {
+            if (currentSortMode === 'drop_desc') sortIcon.innerText = '⬇️';
+            else if (currentSortMode === 'drop_asc') sortIcon.innerText = '⬆️';
+            else sortIcon.innerText = '↕️';
+        }
+
+        let currentWlData = radarData.filter(d => d.watchlistId === activeWlId);
+        if (currentWlData.length === 0) { tbody.innerHTML = `<tr><td colspan="17" style="text-align:center; padding: 30px; color: #94a3b8;">本清單目前無觀察標的，請在上方新增</td></tr>`; return; }
+
+        let searchVal = document.getElementById("search_filter").value.trim().toLowerCase();
+        let tagFilterVal = document.getElementById("category_filter").value;
+
+        let sortedData = [...currentWlData];
+        if (currentSortMode === 'drop_desc') {
+            sortedData.sort((a, b) => getDropPercent(b) - getDropPercent(a));
+        } else if (currentSortMode === 'drop_asc') {
+            sortedData.sort((a, b) => getDropPercent(a) - getDropPercent(b));
+        } else {
+            let currentSort = customSortOrder[activeWlId] || [];
+            sortedData.sort((a, b) => {
+                let idxA = currentSort.indexOf(a.code); let idxB = currentSort.indexOf(b.code);
+                if (idxA === -1) return 1; if (idxB === -1) return -1; return idxA - idxB;
+            });
+        }
+
+        let displayData = sortedData.filter(d => {
+            let dTagsArray = d.tags ? d.tags.split(/[\s,，#\/]+/).map(t => t.trim().toLowerCase()).filter(t => t) : [];
+            let passTag = (tagFilterVal === "ALL" || dTagsArray.includes(tagFilterVal.toLowerCase()));
+            
+            let passSearch = true;
+            if (searchVal) {
+                let codeMatch = d.code.toLowerCase().includes(searchVal);
+                let nameMatch = (d.name || "").toLowerCase().includes(searchVal);
+                let tagMatch = (d.tags || "").toLowerCase().includes(searchVal);
+                passSearch = (codeMatch || nameMatch || tagMatch);
+            }
+            return passTag && passSearch;
+        });
+
+        if (displayData.length === 0) { tbody.innerHTML = `<tr><td colspan="17" style="text-align:center; padding: 30px; color: #94a3b8;">找不到符合條件的標的</td></tr>`; return; }
+
+        displayData.forEach(target => {
+            let avgPriceVal = target.avgPrice !== undefined ? target.avgPrice : "";
+            let nameVal = target.name || ""; let tagsVal = target.tags || "";
+            let effectiveHigh = target.customHighPrice > 0 ? target.customHighPrice : target.highPrice;
+            let displayHigh = target.customHighPrice || target.highPrice;
+            let lightedArray = target.lightedLevels || []; let levels = [5, 10, 15, 20, 25, 30, 40, 50];
+            let dropPercentNum = getDropPercent(target);
+            let dropHtml = "-"; let isNewHigh = false;
+
+            if (target.manualPrice > 0 && effectiveHigh > 0) {
+                if (target.manualPrice >= effectiveHigh) { dropHtml = `<span class="drop-reset">創高重置中</span>`; isNewHigh = true; } 
+                else {
+                    let colorClass = dropPercentNum >= 30 ? "drop-extreme" : (dropPercentNum >= 15 ? "drop-deep" : "drop-mild");
+                    dropHtml = `<span class="${colorClass}">-${dropPercentNum.toFixed(2)}%</span>`;
+                }
+            }
+
+            let targetCellsHtml = levels.map(lv => {
+                let priceValue = (effectiveHigh * (1 - lv/100)).toFixed(1);
+                let activeClass = lightedArray.includes(lv) ? "active" : "";
+                let clickAction = isNewHigh ? "" : `onclick="toggleLight('${target.code}', ${lv}, this)"`;
+                let styleOpacity = isNewHigh ? `opacity: 0.3; cursor: not-allowed;` : ``;
+                return `<td id="tp-${lv}-${target.code}" class="target-price ${activeClass}" style="${styleOpacity}" title="點擊標記加碼點" ${clickAction}>${priceValue}</td>`;
+            }).join('');
+
+            let tr = document.createElement("tr"); tr.className = "radar-row"; tr.dataset.code = target.code; 
+            tr.innerHTML = `
+                <td class="drag-handle" title="按住拖曳排序">≡</td>
+                <td class="col-input-box col-name"><input type="text" value="${nameVal}" placeholder="如: 台積電" onchange="updateField('${target.code}', 'name', this.value)"></td>
+                <td class="col-code">${target.code}</td>
+                <td class="col-input-box col-high-price"><input type="number" step="0.01" value="${displayHigh}" title="輸入以調整股票分割或除權息價格" oninput="updateField('${target.code}', 'customHighPrice', this.value)"></td>
+                <td class="col-input-box col-avg-price"><input type="number" step="0.01" value="${avgPriceVal}" placeholder="未輸入" onchange="updateField('${target.code}', 'avgPrice', this.value)"></td>
+                <td class="col-input-box col-current-price"><input type="number" step="0.01" value="${target.manualPrice}" oninput="updateField('${target.code}', 'manualPrice', this.value)"></td>
+                <td id="drop-${target.code}" class="col-current-drop">${dropHtml}</td>
+                ${targetCellsHtml}
+                <td><button class="btn-del" onclick="removeTarget('${target.code}')">移除</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // ================= 將函式掛載至 window 供 HTML 呼叫 =================
+    window.renderRadar = renderRadar;
+    window.switchTab = switchTab;
+    window.addTab = addTab;
+    window.renameTab = renameTab;
+    window.deleteTab = deleteTab;
+    window.addTarget = addTarget;
+    window.toggleSortMode = toggleSortMode;
+    window.updateField = updateField;
+    window.toggleLight = toggleLight;
+    window.removeTarget = removeTarget;
+
+    // 啟動應用程式
+    initApp();
+</script>
+</body>
+</html>
